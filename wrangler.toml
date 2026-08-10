@@ -1,0 +1,27 @@
+# Copy this next to your own deployment notes, fill in the two blanks, and
+# `wrangler deploy`. Monitors are rows in D1 (see schema.sql), not config in
+# a file — a monitor's URL is often somebody's hostname, and this repository
+# is public.
+name = "nabiz"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+[triggers]
+crons = ["* * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "nabiz"
+database_id = "REPLACE_WITH_YOUR_D1_ID"
+
+[vars]
+# "en" or "tr"
+LANG = "en"
+TITLE = "status"
+
+# Optional, as secrets (`wrangler secret put …`):
+#   TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID — a message on every state change
+#   ALERT_WEBHOOK_URL                     — the same, as JSON to your own endpoint
+
+# To serve on your own hostname, uncomment and let Cloudflare make the DNS:
+# routes = [{ pattern = "status.example.com", custom_domain = true }]
