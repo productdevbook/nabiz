@@ -41,6 +41,26 @@
       "Segoe UI",
       sans-serif;
   }
+  /* Light leaking in from the page's own edges — felt, not seen. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background:
+      radial-gradient(640px 420px at -8% -6%, rgb(26 158 108 / 0.1), transparent 62%),
+      radial-gradient(760px 520px at 108% 24%, rgb(91 123 213 / 0.09), transparent 64%),
+      radial-gradient(520px 380px at 92% 96%, rgb(26 158 108 / 0.06), transparent 60%);
+  }
+  @media (prefers-color-scheme: dark) {
+    body::before {
+      background:
+        radial-gradient(640px 420px at -8% -6%, rgb(26 158 108 / 0.16), transparent 62%),
+        radial-gradient(760px 520px at 108% 24%, rgb(91 123 213 / 0.14), transparent 64%),
+        radial-gradient(520px 380px at 92% 96%, rgb(26 158 108 / 0.1), transparent 60%);
+    }
+  }
   a {
     color: inherit;
   }
@@ -103,7 +123,7 @@
   }
   .callout header,
   .past header {
-    @apply mb-[7px] flex items-center justify-between gap-2;
+    @apply mb-2 flex items-center justify-between gap-2 leading-none;
   }
   .callout time,
   .past time,
@@ -111,7 +131,8 @@
     @apply text-mut text-xs tabular-nums;
   }
   .chip {
-    @apply bg-mut rounded-full px-[9px] py-[3px] text-[10.5px] font-[750] tracking-[0.5px] text-white uppercase;
+    @apply bg-mut inline-flex h-[19px] items-center rounded-full px-[9px] text-[10px] leading-none font-[750] tracking-[0.55px] text-white uppercase;
+    padding-top: 0.5px; /* optical: uppercase sits a hair high in the pill */
   }
   .chip.outage {
     @apply bg-bad;
