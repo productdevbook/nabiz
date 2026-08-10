@@ -9,6 +9,9 @@ CREATE TABLE IF NOT EXISTS monitors (
   method TEXT NOT NULL DEFAULT 'GET',
   expect_status INTEGER NOT NULL DEFAULT 200,
   timeout_ms INTEGER NOT NULL DEFAULT 10000,
+  -- When set, a 200 with the wrong words in it is still a failure — a
+  -- database error page and a healthy page can share a status code.
+  expect_body TEXT,
   group_name TEXT,
   -- Grouped monitors are shown only as their group's tally ("6/6 up"),
   -- never by name. For the sites you host but do not own.
@@ -46,3 +49,12 @@ CREATE TABLE IF NOT EXISTS state (
   ok INTEGER NOT NULL,
   since INTEGER NOT NULL
 );
+
+-- Every change of state, kept so the page can say not only how things are
+-- but what happened lately. Pruned past half a year.
+CREATE TABLE IF NOT EXISTS events (
+  monitor_id INTEGER NOT NULL,
+  at INTEGER NOT NULL,
+  ok INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS events_by_time ON events (at);

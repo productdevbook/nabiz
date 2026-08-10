@@ -1,71 +1,15 @@
 import type { Lang } from "./i18n"
 import { t } from "./i18n"
-import type { Monitor } from "./probe"
-import type { DayRow, PageData } from "./store"
+import { eventsView, overall, rows, uptimeOf } from "./shape"
+import type { DayRow, EventRow, PageData } from "./store"
 
 const WINDOW = 90
-
-interface Row {
-  name: string
-  ok: boolean | null
-  days: DayRow[]
-  latency: number | null
-  tally: string | null
-}
 
 function esc(s: string): string {
   return s.replace(
     /[&<>"]/g,
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] as string,
   )
-}
-
-function mergeDays(lists: DayRow[][]): DayRow[] {
-  const byDay = new Map<string, DayRow>()
-  for (const list of lists)
-    for (const d of list) {
-      const m = byDay.get(d.day) ?? { monitor_id: 0, day: d.day, total: 0, ok: 0, ms_sum: 0 }
-      m.total += d.total
-      m.ok += d.ok
-      m.ms_sum += d.ms_sum
-      byDay.set(d.day, m)
-    }
-  return [...byDay.values()].toSorted((a, b) => (a.day < b.day ? -1 : 1))
-}
-
-function rows(data: PageData): Row[] {
-  const out: Row[] = []
-  const grouped = new Map<string, Monitor[]>()
-
-  for (const m of data.monitors) {
-    if (m.grouped && m.group_name) {
-      const list = grouped.get(m.group_name) ?? []
-      list.push(m)
-      grouped.set(m.group_name, list)
-      continue
-    }
-    const s = data.states.get(m.id)
-    out.push({
-      name: m.name,
-      ok: s ? s.ok : null,
-      days: data.days.get(m.id) ?? [],
-      latency: data.latency.get(m.id) ?? null,
-      tally: null,
-    })
-  }
-
-  for (const [name, members] of grouped) {
-    const up = members.filter((m) => data.states.get(m.id)?.ok).length
-    const known = members.filter((m) => data.states.get(m.id) !== undefined).length
-    out.push({
-      name,
-      ok: known === 0 ? null : up === known,
-      days: mergeDays(members.map((m) => data.days.get(m.id) ?? [])),
-      latency: null,
-      tally: known === 0 ? null : `${up}/${known}`,
-    })
-  }
-  return out
 }
 
 // Turkish writes %50, English writes 50% — the sign follows the language.
@@ -92,23 +36,28 @@ function bars(days: DayRow[], lang: Lang): string {
 }
 
 function uptime(days: DayRow[], lang: Lang): string | null {
-  let total = 0
-  let ok = 0
-  for (const d of days) {
-    total += d.total
-    ok += d.ok
-  }
-  if (total === 0) return null
-  return percent((100 * ok) / total, lang)
+  const pct = uptimeOf(days)
+  return pct === null ? null : percent(pct, lang)
 }
 
-export function page(data: PageData, lang: Lang, title: string): string {
+function eventsSection(data: PageData, events: EventRow[], lang: Lang): string {
+  const view = eventsView(data.monitors, events)
+  if (view.length === 0) return ""
+  const items = view
+    .map((e) => {
+      const when = new Date(e.at).toISOString().replace("T", " ").slice(0, 16)
+      const word = e.ok ? t(lang, "recovered") : t(lang, "down")
+      return `<li><span class="dot ${e.ok ? "ok" : "bad"}"></span><span class="ev-name">${esc(e.label)}</span><span class="ev-what">${word}</span><span class="ev-when">${when} UTC</span></li>`
+    })
+    .join("\n")
+  return `<h3 class="ev-title">${t(lang, "recent_events")}</h3>\n<ul class="events">${items}</ul>`
+}
+
+export function page(data: PageData, lang: Lang, title: string, events: EventRow[]): string {
   const list = rows(data)
-  const known = list.filter((r) => r.ok !== null)
-  const downs = known.filter((r) => r.ok === false).length
-  const banner =
-    known.length === 0 || downs === 0 ? "all_up" : downs === known.length ? "all_down" : "some_down"
-  const bannerClass = banner === "all_up" ? "ok" : banner === "all_down" ? "bad" : "meh"
+  const state = overall(list)
+  const banner = state === "up" ? "all_up" : state === "down" ? "all_down" : "some_down"
+  const bannerClass = state === "up" ? "ok" : state === "down" ? "bad" : "meh"
   const now = new Date().toISOString().replace("T", " ").slice(0, 16)
 
   const items = list
@@ -154,6 +103,13 @@ section h2{font-size:15px;font-weight:600;flex:1}
 .bars i{flex:1;height:26px;border-radius:2px;background:var(--none)}
 .bars i.ok{background:var(--ok)}.bars i.meh{background:var(--meh)}.bars i.bad{background:var(--bad)}
 section footer{display:flex;justify-content:space-between;color:var(--mut);font-size:12px}
+.ev-title{font-size:14px;font-weight:600;margin:26px 0 10px}
+.events{list-style:none;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px 16px}
+.events li{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.events li:last-child{border-bottom:none}
+.ev-name{font-weight:600}
+.ev-what{color:var(--mut);flex:1}
+.ev-when{color:var(--mut);font-variant-numeric:tabular-nums}
 .page-foot{margin-top:28px;color:var(--mut);font-size:12px;display:flex;justify-content:space-between}
 .page-foot a{color:inherit}
 </style>
@@ -162,6 +118,7 @@ section footer{display:flex;justify-content:space-between;color:var(--mut);font-
 <h1>${esc(title)}</h1>
 <div class="banner ${bannerClass}"><span class="dot ${bannerClass === "ok" ? "ok" : "bad"}"></span>${t(lang, banner)}</div>
 ${items}
+${eventsSection(data, events, lang)}
 <div class="page-foot"><span>${t(lang, "updated")}: ${now} UTC</span><a href="https://github.com/productdevbook/nabiz">nabiz</a></div>
 </body>
 </html>`

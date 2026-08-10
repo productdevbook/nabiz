@@ -1,0 +1,111 @@
+import type { Overall } from "./shape"
+import { eventsView, overall, rows, uptimeOf } from "./shape"
+import type { EventRow, PageData } from "./store"
+
+// Read-only public data; the same courtesy the page extends, for machines.
+const CORS = { "access-control-allow-origin": "*" }
+
+function json(body: unknown): Response {
+  return new Response(JSON.stringify(body, null, 1), {
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      ...CORS,
+    },
+  })
+}
+
+export function statusJson(data: PageData, events: EventRow[]): Response {
+  const list = rows(data)
+  return json({
+    status: overall(list),
+    updated_at: new Date().toISOString(),
+    monitors: list.map((r) => {
+      const m: Record<string, unknown> = {
+        name: r.name,
+        status: r.ok === null ? "unknown" : r.ok ? "up" : "down",
+        uptime_90d: uptimeOf(r.days),
+      }
+      if (r.tally !== null) m.up = r.tally
+      if (r.latency !== null) m.latency_ms = r.latency
+      return m
+    }),
+    recent_events: eventsView(data.monitors, events).map((e) => ({
+      monitor: e.label,
+      at: new Date(e.at).toISOString(),
+      status: e.ok ? "up" : "down",
+    })),
+  })
+}
+
+export function historyJson(data: PageData): Response {
+  const list = rows(data)
+  return json({
+    window_days: 90,
+    monitors: list.map((r) => ({
+      name: r.name,
+      days: r.days.map((d) => ({
+        day: d.day,
+        checks: d.total,
+        ok: d.ok,
+        avg_ms: d.total === 0 ? null : Math.round(d.ms_sum / d.total),
+      })),
+    })),
+  })
+}
+
+const COLORS: Record<Overall, string> = { up: "#22a06b", degraded: "#e8a13c", down: "#d64545" }
+
+/** A shields-style badge for a readme: label "status", value the overall. */
+export function badge(data: PageData): Response {
+  const state = overall(rows(data))
+  const color = COLORS[state]
+  const label = "status"
+  const lw = 6 * label.length + 12
+  const vw = 6.2 * state.length + 14
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${lw + vw}" height="20" role="img" aria-label="${label}: ${state}">
+<rect width="${lw}" height="20" rx="3" fill="#555"/>
+<rect x="${lw - 3}" width="${vw + 3}" height="20" fill="${color}"/>
+<rect x="${lw - 3}" width="3" height="20" fill="#555"/>
+<rect x="${lw + vw - 3}" width="3" height="20" rx="3" fill="${color}"/>
+<g fill="#fff" font-family="Verdana,DejaVu Sans,sans-serif" font-size="11" text-anchor="middle">
+<text x="${lw / 2}" y="14">${label}</text>
+<text x="${lw + vw / 2}" y="14">${state}</text>
+</g>
+</svg>`
+  return new Response(svg, {
+    headers: { "content-type": "image/svg+xml", "cache-control": "no-store", ...CORS },
+  })
+}
+
+/** What an agent needs to know, at the address agents look. */
+export function llms(origin: string, title: string): Response {
+  const text = `# ${title}
+
+This is a status page, run by nabiz (https://github.com/productdevbook/nabiz).
+It probes the services listed on it every minute and keeps ninety days of
+history. Monitors marked as a group ("N/M up") stand for hosts that are
+served here but named elsewhere; they are counted, never listed.
+
+## Endpoints
+
+- ${origin}/                 the page, HTML
+- ${origin}/api/status.json  current state, per-monitor uptime and latency, recent events
+- ${origin}/api/history.json ninety days of daily totals per monitor
+- ${origin}/badge.svg        the overall state as a badge
+- ${origin}/health           204 when the status page itself is alive
+
+All JSON is read-only, CORS-open, and uncached: what you get is what is
+true at the moment you asked.
+
+## Reading status.json
+
+"status" is "up", "degraded" or "down" for the whole page. Each monitor
+carries "status", "uptime_90d" (percent, null before the first day of
+data), and "latency_ms" from the most recent successful probe. Grouped
+monitors carry "up" as a tally like "5/6" instead of a latency.
+`
+  return new Response(text, {
+    headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store", ...CORS },
+  })
+}

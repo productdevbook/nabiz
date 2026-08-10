@@ -1,8 +1,9 @@
 import { alert } from "./alert"
+import { badge, historyJson, llms, statusJson } from "./api"
 import { langOf } from "./i18n"
 import { page } from "./page"
 import { probe } from "./probe"
-import { forPage, monitors, prune, record } from "./store"
+import { forPage, monitors, prune, recentEvents, record } from "./store"
 
 export interface Env {
   DB: D1Database
@@ -16,10 +17,24 @@ export interface Env {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
-    if (url.pathname !== "/") return new Response("not found", { status: 404 })
+    const title = env.TITLE ?? "nabiz"
 
+    // Alive as long as the worker answers — the one endpoint with no D1
+    // behind it, so the watchers can watch the watcher.
+    if (url.pathname === "/health") return new Response(null, { status: 204 })
+    if (url.pathname === "/llms.txt" || url.pathname === "/api/llms.txt")
+      return llms(url.origin, title)
+
+    if (url.pathname === "/api/status.json") {
+      const data = await forPage(env.DB, 90)
+      return statusJson(data, await recentEvents(env.DB, 20))
+    }
+    if (url.pathname === "/api/history.json") return historyJson(await forPage(env.DB, 90))
+    if (url.pathname === "/badge.svg") return badge(await forPage(env.DB, 90))
+
+    if (url.pathname !== "/") return new Response("not found", { status: 404 })
     const data = await forPage(env.DB, 90)
-    return new Response(page(data, langOf(env.LANG), env.TITLE ?? "nabiz"), {
+    return new Response(page(data, langOf(env.LANG), title, await recentEvents(env.DB, 10)), {
       headers: {
         "content-type": "text/html; charset=utf-8",
         // A status page that caches is a status page that lies.

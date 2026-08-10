@@ -75,18 +75,40 @@ export async function record(db: D1Database, results: ProbeResult[]): Promise<St
           )
           .bind(r.monitor.id, r.ok ? 1 : 0, now),
       )
+      // The very first sighting is a state, not an event.
+      if (was !== undefined)
+        stateWrites.push(
+          db
+            .prepare("INSERT INTO events (monitor_id, at, ok) VALUES (?, ?, ?)")
+            .bind(r.monitor.id, now, r.ok ? 1 : 0),
+        )
     }
   }
   if (stateWrites.length > 0) await db.batch(stateWrites)
   return changes
 }
 
-/** Raw checks feed only the current-latency figure; two days is plenty. */
+/** Raw checks feed only the current-latency figure; two days is plenty.
+ *  Events tell a longer story and get half a year. */
 export async function prune(db: D1Database): Promise<void> {
-  await db
-    .prepare("DELETE FROM checks WHERE at < ?")
-    .bind(Date.now() - 2 * 24 * 3600 * 1000)
-    .run()
+  await db.batch([
+    db.prepare("DELETE FROM checks WHERE at < ?").bind(Date.now() - 2 * 24 * 3600 * 1000),
+    db.prepare("DELETE FROM events WHERE at < ?").bind(Date.now() - 180 * 24 * 3600 * 1000),
+  ])
+}
+
+export interface EventRow {
+  monitor_id: number
+  at: number
+  ok: number
+}
+
+export async function recentEvents(db: D1Database, limit: number): Promise<EventRow[]> {
+  const { results } = await db
+    .prepare("SELECT monitor_id, at, ok FROM events ORDER BY at DESC LIMIT ?")
+    .bind(limit)
+    .all<EventRow>()
+  return results
 }
 
 export interface PageData {

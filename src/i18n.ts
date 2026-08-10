@@ -13,6 +13,7 @@ const strings = {
     no_data: "no data yet",
     updated: "Updated",
     days: "days",
+    recent_events: "Recent events",
   },
   tr: {
     all_up: "Tüm sistemler çalışıyor",
@@ -26,6 +27,7 @@ const strings = {
     no_data: "henüz veri yok",
     updated: "Güncellendi",
     days: "gün",
+    recent_events: "Son olaylar",
   },
 } as const
 

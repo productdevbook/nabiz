@@ -23,9 +23,16 @@ free tier.
 - **Grouped monitors**: hosts you serve but do not own are shown only as a
   tally — "6/6 up" — never by name. A public status page does not have to
   be a public customer list.
+- A **Recent events** list on the page: every change of state, kept for
+  half a year.
 - A Telegram message and/or a webhook on every state change — on the
   change, not on every minute of an outage — with how long the previous
   state had held.
+- Optional **body matching** per monitor: when `expect_body` is set, a 200
+  with the wrong words in it is still a failure — a database error page
+  and a healthy page can share a status code.
+- **An API and an `llms.txt`**, because the readers of a status page are
+  no longer only people.
 - English and Turkish out of the box.
 
 ## What it deliberately does not do
@@ -69,6 +76,30 @@ wrangler secret put ALERT_WEBHOOK_URL
 
 To serve it on your own hostname, uncomment the `routes` line in
 `wrangler.toml` — Cloudflare creates the DNS record and the certificate.
+
+## The API
+
+Everything the page knows, as JSON — read-only, CORS-open, uncached:
+
+| Endpoint | What it answers |
+|---|---|
+| `/api/status.json` | overall state, per-monitor status, 90-day uptime, latency, recent events |
+| `/api/history.json` | ninety days of daily totals and average latency per monitor |
+| `/badge.svg` | the overall state as a badge, for a readme |
+| `/llms.txt` | this table, in the shape agents look for |
+| `/health` | 204 — the status page's own pulse, with no database behind it |
+
+Grouped monitors keep their anonymity in the API too: a tally, never a
+member list.
+
+## Upgrading from v0.1
+
+Two schema additions; run once against your database:
+
+```sh
+wrangler d1 execute nabiz --remote --command "ALTER TABLE monitors ADD COLUMN expect_body TEXT"
+wrangler d1 execute nabiz --remote --command "CREATE TABLE events (monitor_id INTEGER NOT NULL, at INTEGER NOT NULL, ok INTEGER NOT NULL); CREATE INDEX events_by_time ON events (at)"
+```
 
 ## Limits worth knowing
 

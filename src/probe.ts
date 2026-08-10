@@ -6,6 +6,7 @@ export interface Monitor {
   method: string
   expect_status: number
   timeout_ms: number
+  expect_body: string | null
   group_name: string | null
   grouped: number
   enabled: number
@@ -30,9 +31,12 @@ export async function probe(monitor: Monitor): Promise<ProbeResult> {
       signal: AbortSignal.timeout(monitor.timeout_ms),
       headers: { "user-agent": "nabiz (+https://github.com/productdevbook/nabiz)" },
     })
+    let ok = response.status === monitor.expect_status
+    // Only read the body when the words in it are part of the promise.
+    if (ok && monitor.expect_body) ok = (await response.text()).includes(monitor.expect_body)
     return {
       monitor,
-      ok: response.status === monitor.expect_status,
+      ok,
       status: response.status,
       ms: Date.now() - started,
     }
