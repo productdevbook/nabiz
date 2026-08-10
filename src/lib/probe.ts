@@ -29,6 +29,9 @@ export async function probe(monitor: Monitor): Promise<ProbeResult> {
     const response = await fetch(monitor.url, {
       method: monitor.method,
       redirect: "manual",
+      // Without this a cacheable 200 can come from Cloudflare's cache and
+      // mask a real outage — a probe must always reach the origin.
+      cache: "no-store",
       signal: AbortSignal.timeout(monitor.timeout_ms),
       headers: { "user-agent": "nabiz (+https://github.com/productdevbook/nabiz)" },
     })

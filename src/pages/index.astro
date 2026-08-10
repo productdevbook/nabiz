@@ -29,7 +29,7 @@ const pastNotices = noticeList.filter((n) => n.resolved_at !== null)
 const eventItems = eventsView(data.monitors, events)
 const LANGS: Lang[] = ["en", "tr", "de", "es", "fr"]
 
-Astro.response.headers.set("cache-control", "no-store")
+Astro.response.headers.set("cache-control", "public, max-age=0, s-maxage=15")
 Astro.response.headers.set("x-status", state)
 Astro.response.headers.set(
   "link",

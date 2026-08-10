@@ -10,13 +10,18 @@ compatibility_flags = ["nodejs_compat"]
 [triggers]
 crons = ["* * * * *"]
 
+# Workers Logs, inside the free tier — a cron that fails silently is a
+# status page lying by omission.
+[observability]
+enabled = true
+
 [[d1_databases]]
 binding = "DB"
 database_name = "nabiz"
 database_id = "REPLACE_WITH_YOUR_D1_ID"
 
 [vars]
-# "en" or "tr"
+# "en", "tr", "de", "es" or "fr"
 LANG = "en"
 TITLE = "nabiz"
 

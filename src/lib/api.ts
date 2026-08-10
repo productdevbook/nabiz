@@ -191,6 +191,23 @@ monitors carry "up" as a tally like "5/6" instead of a latency.
 
 const SEVERITIES = new Set(["info", "maintenance", "degraded", "outage"])
 
+/** Per-isolate brake on token guessing: ten tries a minute per address.
+ *  An isolate's memory is not global state, but a brute force rides one
+ *  connection into one colo — and that path this closes. */
+const attempts = new Map<string, { n: number; until: number }>()
+
+export function throttled(request: Request, now = Date.now()): boolean {
+  if (attempts.size > 10_000) for (const [k, v] of attempts) if (v.until < now) attempts.delete(k)
+  const ip = request.headers.get("cf-connecting-ip") ?? "?"
+  const slot = attempts.get(ip)
+  if (slot === undefined || slot.until < now) {
+    attempts.set(ip, { n: 1, until: now + 60_000 })
+    return false
+  }
+  slot.n += 1
+  return slot.n > 10
+}
+
 /** The operator's word is a write, and writes need the token — compared in
  *  constant time, because a status page is still a door. */
 export async function authorized(request: Request, token: string | undefined): Promise<boolean> {
