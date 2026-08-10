@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+
 import type { Monitor, ProbeResult } from "../src/probe"
 import { record } from "../src/store"
 import { fakeDb } from "./fake-d1"
@@ -31,7 +32,7 @@ function withState(rows: { monitor_id: number; ok: number; since: number; fails:
 }
 
 const stateWrite = (writes: { sql: string; args: unknown[] }[]) =>
-  writes.filter((w) => w.sql.includes("INTO state")).at(-1)
+  writes.findLast((w) => w.sql.includes("INTO state"))
 const eventWrites = (writes: { sql: string; args: unknown[] }[]) =>
   writes.filter((w) => w.sql.includes("INTO events"))
 

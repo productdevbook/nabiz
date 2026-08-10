@@ -141,20 +141,33 @@ export interface PageData {
   states: Map<number, { ok: boolean; since: number }>
   days: Map<number, DayRow[]>
   latency: Map<number, number>
+  /** Last day of successful-probe latency, averaged into quarter-hours. */
+  spark: Map<number, number[]>
 }
 
 export async function forPage(db: D1Database, window: number): Promise<PageData> {
   const all = await monitors(db)
   const since = new Date(Date.now() - window * 24 * 3600 * 1000).toISOString().slice(0, 10)
 
-  const [statesQ, daysQ, latencyQ] = await db.batch<never>([
+  const [statesQ, daysQ, latencyQ, sparkQ] = await db.batch<never>([
     db.prepare("SELECT monitor_id, ok, since FROM state"),
     db.prepare("SELECT * FROM days WHERE day >= ? ORDER BY day").bind(since),
     db
       .prepare(`SELECT monitor_id, ms FROM checks WHERE ok = 1 AND at > ? ORDER BY at`)
       .bind(Date.now() - 3600 * 1000),
+    db
+      .prepare(
+        `SELECT monitor_id, at / 900000 AS bucket, CAST(AVG(ms) AS INTEGER) AS ms
+         FROM checks WHERE ok = 1 AND at > ? GROUP BY monitor_id, bucket ORDER BY bucket`,
+      )
+      .bind(Date.now() - 24 * 3600 * 1000),
   ])
-  if (statesQ === undefined || daysQ === undefined || latencyQ === undefined)
+  if (
+    statesQ === undefined ||
+    daysQ === undefined ||
+    latencyQ === undefined ||
+    sparkQ === undefined
+  )
     throw new Error("the batch came back short, which D1 does not do")
 
   const states = new Map<number, { ok: boolean; since: number }>()
@@ -173,5 +186,12 @@ export async function forPage(db: D1Database, window: number): Promise<PageData>
   for (const c of latencyQ.results as unknown as { monitor_id: number; ms: number }[])
     latency.set(c.monitor_id, c.ms)
 
-  return { monitors: all, states, days, latency }
+  const spark = new Map<number, number[]>()
+  for (const p of sparkQ.results as unknown as { monitor_id: number; ms: number }[]) {
+    const list = spark.get(p.monitor_id) ?? []
+    list.push(p.ms)
+    spark.set(p.monitor_id, list)
+  }
+
+  return { monitors: all, states, days, latency, spark }
 }

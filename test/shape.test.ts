@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+
 import type { Monitor } from "../src/probe"
 import { eventsView, overall, rows, uptimeOf } from "../src/shape"
 import type { PageData } from "../src/store"
@@ -30,6 +31,7 @@ function data(monitors: Monitor[], states: [number, boolean][]): PageData {
     states: new Map(states.map(([id, ok]) => [id, { ok, since: 0 }])),
     days: new Map(),
     latency: new Map(),
+    spark: new Map(),
   }
 }
 
@@ -37,7 +39,15 @@ describe("grouped monitors are counted, never listed", () => {
   test("a group collapses to a tally under its group name", () => {
     const a = monitor({ grouped: 1, group_name: "Hosted", name: "secret-a" })
     const b = monitor({ grouped: 1, group_name: "Hosted", name: "secret-b" })
-    const list = rows(data([a, b], [[a.id, true], [b.id, false]]))
+    const list = rows(
+      data(
+        [a, b],
+        [
+          [a.id, true],
+          [b.id, false],
+        ],
+      ),
+    )
 
     expect(list).toHaveLength(1)
     expect(list[0]?.name).toBe("Hosted")
@@ -60,7 +70,19 @@ describe("the banner tells the honest worst", () => {
   test("one of two down reads degraded", () => {
     const a = monitor()
     const b = monitor()
-    expect(overall(rows(data([a, b], [[a.id, true], [b.id, false]])))).toBe("degraded")
+    expect(
+      overall(
+        rows(
+          data(
+            [a, b],
+            [
+              [a.id, true],
+              [b.id, false],
+            ],
+          ),
+        ),
+      ),
+    ).toBe("degraded")
   })
   test("everything down reads down", () => {
     const m = monitor()

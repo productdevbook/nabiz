@@ -10,6 +10,7 @@ export interface Row {
   days: DayRow[]
   latency: number | null
   tally: string | null
+  spark: number[] | null
 }
 
 function mergeDays(lists: DayRow[][]): DayRow[] {
@@ -43,6 +44,7 @@ export function rows(data: PageData): Row[] {
       days: data.days.get(m.id) ?? [],
       latency: data.latency.get(m.id) ?? null,
       tally: null,
+      spark: data.spark.get(m.id) ?? null,
     })
   }
 
@@ -55,6 +57,7 @@ export function rows(data: PageData): Row[] {
       days: mergeDays(members.map((m) => data.days.get(m.id) ?? [])),
       latency: null,
       tally: known === 0 ? null : `${up}/${known}`,
+      spark: null,
     })
   }
   return out

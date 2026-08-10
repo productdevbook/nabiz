@@ -1,5 +1,5 @@
 import { alert } from "./alert"
-import { badge, historyJson, llms, statusJson } from "./api"
+import { badge, feed, historyJson, llms, statusJson } from "./api"
 import { langOf } from "./i18n"
 import { page } from "./page"
 import { probe } from "./probe"
@@ -30,6 +30,10 @@ export default {
       return statusJson(data, await recentEvents(env.DB, 20))
     }
     if (url.pathname === "/api/history.json") return historyJson(await forPage(env.DB, 90))
+    if (url.pathname === "/feed.xml") {
+      const data = await forPage(env.DB, 90)
+      return feed(url.origin, title, data, await recentEvents(env.DB, 50), langOf(env.LANG))
+    }
     if (url.pathname === "/badge.svg") return badge(await forPage(env.DB, 90))
 
     if (url.pathname !== "/") return new Response("not found", { status: 404 })

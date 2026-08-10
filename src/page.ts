@@ -40,6 +40,25 @@ function uptime(days: DayRow[], lang: Lang): string | null {
   return pct === null ? null : percent(pct, lang)
 }
 
+/** A day of latency as a hairline, drawn only when there is something to
+ *  draw and the monitor answers by name. */
+function sparkline(points: number[], lang: Lang): string {
+  if (points.length < 2) return ""
+  const w = 110
+  const h = 22
+  const max = Math.max(...points)
+  const min = Math.min(...points)
+  const span = Math.max(max - min, 1)
+  const path = points
+    .map((p, i) => {
+      const x = ((w - 2) * i) / (points.length - 1) + 1
+      const y = h - 3 - ((h - 6) * (p - min)) / span
+      return `${i === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`
+    })
+    .join(" ")
+  return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><title>${t(lang, "last_day")}</title><path d="${path}" fill="none" stroke="var(--ok)" stroke-width="1.5" stroke-linejoin="round"/></svg>`
+}
+
 function eventsSection(data: PageData, events: EventRow[], lang: Lang): string {
   const view = eventsView(data.monitors, events)
   if (view.length === 0) return ""
@@ -67,7 +86,7 @@ export function page(data: PageData, lang: Lang, title: string, events: EventRow
         r.tally !== null
           ? `<span class="tally">${esc(r.tally)} ${t(lang, "up")}</span>`
           : r.latency !== null
-            ? `<span class="ms">${r.latency} ms</span>`
+            ? `${r.spark ? sparkline(r.spark, lang) : ""}<span class="ms">${r.latency} ms</span>`
             : ""
       const pct = uptime(r.days, lang)
       return `<section>
@@ -99,6 +118,7 @@ section{background:var(--card);border:1px solid var(--line);border-radius:10px;p
 section header{display:flex;align-items:center;gap:9px}
 section h2{font-size:15px;font-weight:600;flex:1}
 .ms,.tally{color:var(--mut);font-size:13px;font-variant-numeric:tabular-nums}
+.spark{opacity:.75;margin-right:4px}
 .bars{display:flex;gap:2px;margin:10px 0 6px}
 .bars i{flex:1;height:26px;border-radius:2px;background:var(--none)}
 .bars i.ok{background:var(--ok)}.bars i.meh{background:var(--meh)}.bars i.bad{background:var(--bad)}

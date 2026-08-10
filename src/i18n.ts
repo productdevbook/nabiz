@@ -14,6 +14,7 @@ const strings = {
     updated: "Updated",
     days: "days",
     recent_events: "Recent events",
+    last_day: "latency, last 24h",
   },
   tr: {
     all_up: "Tüm sistemler çalışıyor",
@@ -28,6 +29,7 @@ const strings = {
     updated: "Güncellendi",
     days: "gün",
     recent_events: "Son olaylar",
+    last_day: "gecikme, son 24 saat",
   },
 } as const
 

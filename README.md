@@ -18,8 +18,12 @@ free tier.
 
 - Probes every monitor once a minute; expected status, timeout and method
   per monitor.
-- Ninety days of uptime bars per monitor, a live latency figure, an overall
-  banner.
+- **One bad minute is weather, not an outage**: a monitor is called down
+  only after `fail_threshold` probes in a row fail (default 2), while
+  recovery is immediate. The bars still draw every measurement — the
+  record and the verdict are different things.
+- Ninety days of uptime bars per monitor, a live latency figure with a
+  24-hour sparkline, an overall banner.
 - **Grouped monitors**: hosts you serve but do not own are shown only as a
   tally — "6/6 up" — never by name. A public status page does not have to
   be a public customer list.
@@ -31,8 +35,9 @@ free tier.
 - Optional **body matching** per monitor: when `expect_body` is set, a 200
   with the wrong words in it is still a failure — a database error page
   and a healthy page can share a status code.
-- **An API and an `llms.txt`**, because the readers of a status page are
-  no longer only people.
+- **An API, an RSS feed and an `llms.txt`**, because the readers of a
+  status page are no longer only people — and the ones that are can
+  subscribe from any feed reader, for nothing.
 - English and Turkish out of the box.
 
 ## What it deliberately does not do
@@ -86,19 +91,24 @@ Everything the page knows, as JSON — read-only, CORS-open, uncached:
 | `/api/status.json` | overall state, per-monitor status, 90-day uptime, latency, recent events |
 | `/api/history.json` | ninety days of daily totals and average latency per monitor |
 | `/badge.svg` | the overall state as a badge, for a readme |
+| `/feed.xml` | every change of state, as RSS |
 | `/llms.txt` | this table, in the shape agents look for |
 | `/health` | 204 — the status page's own pulse, with no database behind it |
 
 Grouped monitors keep their anonymity in the API too: a tally, never a
 member list.
 
-## Upgrading from v0.1
+## Upgrading from earlier versions
 
-Two schema additions; run once against your database:
+Schema additions land as `ALTER`s; run whichever your database is missing:
 
 ```sh
+# v0.1 → v0.2
 wrangler d1 execute nabiz --remote --command "ALTER TABLE monitors ADD COLUMN expect_body TEXT"
 wrangler d1 execute nabiz --remote --command "CREATE TABLE events (monitor_id INTEGER NOT NULL, at INTEGER NOT NULL, ok INTEGER NOT NULL); CREATE INDEX events_by_time ON events (at)"
+# v0.2 → v1.0
+wrangler d1 execute nabiz --remote --command "ALTER TABLE monitors ADD COLUMN fail_threshold INTEGER NOT NULL DEFAULT 2"
+wrangler d1 execute nabiz --remote --command "ALTER TABLE state ADD COLUMN fails INTEGER NOT NULL DEFAULT 0"
 ```
 
 ## Limits worth knowing

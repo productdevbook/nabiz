@@ -78,6 +78,48 @@ export function badge(data: PageData): Response {
   })
 }
 
+function escXml(s: string): string {
+  return s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] as string)
+}
+
+/** State changes as RSS — the subscription a paid status product sells,
+ *  from any feed reader, for nothing. */
+export function feed(
+  origin: string,
+  title: string,
+  data: PageData,
+  events: EventRow[],
+  lang: "en" | "tr",
+): Response {
+  const items = eventsView(data.monitors, events)
+    .map((e) => {
+      const what = e.ok
+        ? lang === "tr"
+          ? "toparlandı"
+          : "recovered"
+        : lang === "tr"
+          ? "yanıt vermiyor"
+          : "down"
+      const when = new Date(e.at).toUTCString()
+      return `<item><title>${escXml(e.label)} — ${what}</title><pubDate>${when}</pubDate><guid isPermaLink="false">${e.at}-${escXml(e.label)}</guid><link>${origin}/</link></item>`
+    })
+    .join("\n")
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel>
+<title>${escXml(title)}</title>
+<link>${origin}/</link>
+<description>${escXml(title)}</description>
+${items}
+</channel></rss>`
+  return new Response(xml, {
+    headers: {
+      "content-type": "application/rss+xml; charset=utf-8",
+      "cache-control": "no-store",
+      ...CORS,
+    },
+  })
+}
+
 /** What an agent needs to know, at the address agents look. */
 export function llms(origin: string, title: string): Response {
   const text = `# ${title}
@@ -93,6 +135,7 @@ served here but named elsewhere; they are counted, never listed.
 - ${origin}/api/status.json  current state, per-monitor uptime and latency, recent events
 - ${origin}/api/history.json ninety days of daily totals per monitor
 - ${origin}/badge.svg        the overall state as a badge
+- ${origin}/feed.xml         state changes as RSS
 - ${origin}/health           204 when the status page itself is alive
 
 All JSON is read-only, CORS-open, and uncached: what you get is what is

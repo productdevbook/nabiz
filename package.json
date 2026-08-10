@@ -1,6 +1,6 @@
 {
   "name": "nabiz",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "description": "A status page that keeps beating when your server does not \u2014 Cloudflare Worker + cron + D1.",
   "license": "MIT",
