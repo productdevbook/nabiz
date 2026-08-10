@@ -2,6 +2,8 @@
   <img src="docs/cover.svg" alt="nabiz — a status page that keeps beating when your server does not" width="100%">
 </p>
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/productdevbook/nabiz)
+
 # nabiz
 
 *From the Turkish **nabız** — "pulse", as in keeping a finger on one. Spelled `nabiz` everywhere, because the dotless ı deserves better than being typed wrong.*
@@ -38,7 +40,12 @@ free tier.
 - **An API, an RSS feed and an `llms.txt`**, because the readers of a
   status page are no longer only people — and the ones that are can
   subscribe from any feed reader, for nothing.
-- English and Turkish out of the box.
+- **Operator notices**: press `n` on the page (or open `/#notice`), give
+  the access token, and write what is happening in markdown — severity
+  chips for maintenance, degraded and outage, one-click resolve, and the
+  same thing over the API for scripts. What a probe can say is that a
+  thing is down; only a person can say why, and when to expect it back.
+- English, Turkish, German, Spanish and French out of the box.
 
 ## What it deliberately does not do
 
@@ -93,7 +100,22 @@ Everything the page knows, as JSON — read-only, CORS-open, uncached:
 | `/badge.svg` | the overall state as a badge, for a readme |
 | `/feed.xml` | every change of state, as RSS |
 | `/llms.txt` | this table, in the shape agents look for |
+| `/api/notices.json` | operator notices, markdown and rendered |
 | `/health` | 204 — the status page's own pulse, with no database behind it |
+
+Writing needs the token (`wrangler secret put ADMIN_TOKEN`) and goes over
+`Authorization: Bearer`:
+
+```sh
+curl -X POST https://status.example.com/api/notice \
+  -H "authorization: Bearer $TOKEN" -H "content-type: application/json" \
+  -d '{"severity": "maintenance", "body": "**Planned window** tonight, 02:00-03:00 UTC."}'
+curl -X POST https://status.example.com/api/notice/resolve \
+  -H "authorization: Bearer $TOKEN" -H "content-type: application/json" -d '{"id": 1}'
+```
+
+No token set, no writing anywhere — the editor and both endpoints refuse,
+which is the right default for a page anyone can read.
 
 Grouped monitors keep their anonymity in the API too: a tally, never a
 member list.
@@ -109,6 +131,8 @@ wrangler d1 execute nabiz --remote --command "CREATE TABLE events (monitor_id IN
 # v0.2 → v1.0
 wrangler d1 execute nabiz --remote --command "ALTER TABLE monitors ADD COLUMN fail_threshold INTEGER NOT NULL DEFAULT 2"
 wrangler d1 execute nabiz --remote --command "ALTER TABLE state ADD COLUMN fails INTEGER NOT NULL DEFAULT 0"
+# v1.0 → v1.1
+wrangler d1 execute nabiz --remote --command "CREATE TABLE notices (id INTEGER PRIMARY KEY, at INTEGER NOT NULL, severity TEXT NOT NULL DEFAULT 'info', body_md TEXT NOT NULL, resolved_at INTEGER)"
 ```
 
 ## Limits worth knowing

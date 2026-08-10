@@ -195,3 +195,44 @@ export async function forPage(db: D1Database, window: number): Promise<PageData>
 
   return { monitors: all, states, days, latency, spark }
 }
+
+export interface Notice {
+  id: number
+  at: number
+  severity: string
+  body_md: string
+  resolved_at: number | null
+}
+
+/** Open notices first, newest first; the resolved tail is capped so the
+ *  page tells the story without becoming the archive. */
+export async function notices(db: D1Database, resolvedLimit: number): Promise<Notice[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT * FROM notices
+       WHERE resolved_at IS NULL
+          OR id IN (SELECT id FROM notices WHERE resolved_at IS NOT NULL ORDER BY at DESC LIMIT ?)
+       ORDER BY (resolved_at IS NULL) DESC, at DESC`,
+    )
+    .bind(resolvedLimit)
+    .all<Notice>()
+  return results
+}
+
+export async function addNotice(db: D1Database, severity: string, body: string): Promise<number> {
+  const row = await db
+    .prepare("INSERT INTO notices (at, severity, body_md) VALUES (?, ?, ?) RETURNING id")
+    .bind(Date.now(), severity, body)
+    .first<{ id: number }>()
+  if (row === null) throw new Error("the insert returned nothing, which D1 does not do")
+  return row.id
+}
+
+/** True when something was actually resolved just now. */
+export async function resolveNotice(db: D1Database, id: number): Promise<boolean> {
+  const r = await db
+    .prepare("UPDATE notices SET resolved_at = ? WHERE id = ? AND resolved_at IS NULL")
+    .bind(Date.now(), id)
+    .run()
+  return ((r as { meta?: { changes?: number } }).meta?.changes ?? 0) > 0
+}

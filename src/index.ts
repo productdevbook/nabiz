@@ -1,14 +1,25 @@
 import { alert } from "./alert"
-import { badge, feed, historyJson, llms, statusJson } from "./api"
+import {
+  authorized,
+  badge,
+  feed,
+  historyJson,
+  llms,
+  noticesJson,
+  postNotice,
+  postResolve,
+  statusJson,
+} from "./api"
 import { langOf } from "./i18n"
 import { page } from "./page"
 import { probe } from "./probe"
-import { forPage, monitors, prune, recentEvents, record } from "./store"
+import { forPage, monitors, notices, prune, recentEvents, record } from "./store"
 
 export interface Env {
   DB: D1Database
   LANG?: string
   TITLE?: string
+  ADMIN_TOKEN?: string
   TELEGRAM_BOT_TOKEN?: string
   TELEGRAM_CHAT_ID?: string
   ALERT_WEBHOOK_URL?: string
@@ -25,6 +36,21 @@ export default {
     if (url.pathname === "/llms.txt" || url.pathname === "/api/llms.txt")
       return llms(url.origin, title)
 
+    if (
+      request.method === "POST" &&
+      (url.pathname === "/api/notice" || url.pathname === "/api/notice/resolve")
+    ) {
+      if (!(await authorized(request, env.ADMIN_TOKEN)))
+        return new Response(JSON.stringify({ error: "unauthorized" }), {
+          status: 401,
+          headers: { "content-type": "application/json" },
+        })
+      return url.pathname === "/api/notice"
+        ? postNotice(request, env.DB)
+        : postResolve(request, env.DB)
+    }
+    if (url.pathname === "/api/notices.json") return noticesJson(await notices(env.DB, 10))
+
     if (url.pathname === "/api/status.json") {
       const data = await forPage(env.DB, 90)
       return statusJson(data, await recentEvents(env.DB, 20))
@@ -32,19 +58,29 @@ export default {
     if (url.pathname === "/api/history.json") return historyJson(await forPage(env.DB, 90))
     if (url.pathname === "/feed.xml") {
       const data = await forPage(env.DB, 90)
-      return feed(url.origin, title, data, await recentEvents(env.DB, 50), langOf(env.LANG))
+      return feed(
+        url.origin,
+        title,
+        data,
+        await recentEvents(env.DB, 50),
+        await notices(env.DB, 10),
+        langOf(env.LANG),
+      )
     }
     if (url.pathname === "/badge.svg") return badge(await forPage(env.DB, 90))
 
     if (url.pathname !== "/") return new Response("not found", { status: 404 })
     const data = await forPage(env.DB, 90)
-    return new Response(page(data, langOf(env.LANG), title, await recentEvents(env.DB, 10)), {
-      headers: {
-        "content-type": "text/html; charset=utf-8",
-        // A status page that caches is a status page that lies.
-        "cache-control": "no-store",
+    return new Response(
+      page(data, langOf(env.LANG), title, await recentEvents(env.DB, 10), await notices(env.DB, 3)),
+      {
+        headers: {
+          "content-type": "text/html; charset=utf-8",
+          // A status page that caches is a status page that lies.
+          "cache-control": "no-store",
+        },
       },
-    })
+    )
   },
 
   async scheduled(controller: ScheduledController, env: Env): Promise<void> {

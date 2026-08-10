@@ -1,7 +1,8 @@
 import type { Lang } from "./i18n"
 import { t } from "./i18n"
+import { render } from "./markdown"
 import { eventsView, overall, rows, uptimeOf } from "./shape"
-import type { DayRow, EventRow, PageData } from "./store"
+import type { DayRow, EventRow, Notice, PageData } from "./store"
 
 const WINDOW = 90
 
@@ -59,6 +60,97 @@ function sparkline(points: number[], lang: Lang): string {
   return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><title>${t(lang, "last_day")}</title><path d="${path}" fill="none" stroke="var(--ok)" stroke-width="1.5" stroke-linejoin="round"/></svg>`
 }
 
+function sevLabel(severity: string, lang: Lang): string {
+  const key =
+    severity === "maintenance"
+      ? "sev_maintenance"
+      : severity === "degraded"
+        ? "sev_degraded"
+        : severity === "outage"
+          ? "sev_outage"
+          : "sev_info"
+  return t(lang, key)
+}
+
+function noticesSection(list: Notice[], lang: Lang): string {
+  if (list.length === 0) return ""
+  const items = list
+    .map((n) => {
+      const when = new Date(n.at).toISOString().replace("T", " ").slice(0, 16)
+      const open = n.resolved_at === null
+      const chip = open
+        ? `<span class="chip ${esc(n.severity)}">${sevLabel(n.severity, lang)}</span>`
+        : `<span class="chip done">${t(lang, "resolved")}</span>`
+      return `<article class="notice${open ? "" : " over"}" data-notice="${n.id}"${open ? ' data-open="1"' : ""}>
+  <header>${chip}<span class="ev-when">${when} UTC</span></header>
+  <div class="md">${render(n.body_md)}</div>
+</article>`
+    })
+    .join("\n")
+  return `<h3 class="ev-title">${t(lang, "notices")}</h3>\n${items}`
+}
+
+function editor(lang: Lang): string {
+  return `<dialog id="ed">
+  <h3>${t(lang, "ed_title")}</h3>
+  <input id="tok" type="password" placeholder="${t(lang, "ed_token")}" autocomplete="off">
+  <select id="sev">
+    <option value="info">${t(lang, "sev_info")}</option>
+    <option value="maintenance">${t(lang, "sev_maintenance")}</option>
+    <option value="degraded">${t(lang, "sev_degraded")}</option>
+    <option value="outage">${t(lang, "sev_outage")}</option>
+  </select>
+  <textarea id="txt" rows="5" placeholder="${t(lang, "ed_body")}"></textarea>
+  <div id="resolvables"></div>
+  <p id="ederr" class="ederr"></p>
+  <footer><button id="cancel" type="button">${t(lang, "ed_cancel")}</button><button id="pub" type="button" class="primary">${t(lang, "ed_publish")}</button></footer>
+</dialog>
+<script>
+(function () {
+  var dlg = document.getElementById("ed");
+  var tok = document.getElementById("tok");
+  var err = document.getElementById("ederr");
+  tok.value = localStorage.getItem("nabiz-token") || "";
+  function open() { if (!dlg.open) { fill(); dlg.showModal(); } }
+  function fill() {
+    var box = document.getElementById("resolvables");
+    box.innerHTML = "";
+    document.querySelectorAll("[data-open]").forEach(function (n) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = "${t(lang, "ed_resolve")} #" + n.dataset.notice;
+      b.onclick = function () { send("/api/notice/resolve", { id: Number(n.dataset.notice) }); };
+      box.appendChild(b);
+    });
+  }
+  function send(path, body) {
+    err.textContent = "";
+    fetch(path, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer " + tok.value },
+      body: JSON.stringify(body),
+    }).then(function (r) {
+      if (r.ok) { localStorage.setItem("nabiz-token", tok.value); location.href = "/"; }
+      else err.textContent = "${t(lang, "ed_failed")}";
+    });
+  }
+  document.getElementById("pub").onclick = function () {
+    send("/api/notice", {
+      severity: document.getElementById("sev").value,
+      body: document.getElementById("txt").value,
+    });
+  };
+  document.getElementById("cancel").onclick = function () { dlg.close(); };
+  addEventListener("keydown", function (e) {
+    var tag = (document.activeElement || {}).tagName;
+    if (e.key === "n" && !e.metaKey && !e.ctrlKey && tag !== "INPUT" && tag !== "TEXTAREA") open();
+  });
+  if (location.hash === "#notice") open();
+  setInterval(function () { if (!dlg.open) location.reload(); }, 60000);
+})();
+</script>`
+}
+
 function eventsSection(data: PageData, events: EventRow[], lang: Lang): string {
   const view = eventsView(data.monitors, events)
   if (view.length === 0) return ""
@@ -72,7 +164,13 @@ function eventsSection(data: PageData, events: EventRow[], lang: Lang): string {
   return `<h3 class="ev-title">${t(lang, "recent_events")}</h3>\n<ul class="events">${items}</ul>`
 }
 
-export function page(data: PageData, lang: Lang, title: string, events: EventRow[]): string {
+export function page(
+  data: PageData,
+  lang: Lang,
+  title: string,
+  events: EventRow[],
+  noticeList: Notice[],
+): string {
   const list = rows(data)
   const state = overall(list)
   const banner = state === "up" ? "all_up" : state === "down" ? "all_down" : "some_down"
@@ -102,7 +200,6 @@ export function page(data: PageData, lang: Lang, title: string, events: EventRow
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="refresh" content="60">
 <title>${esc(title)}</title>
 <style>
 :root{--bg:#fafafa;--card:#fff;--fg:#1a1a1a;--mut:#777;--line:#e5e5e5;--ok:#22a06b;--meh:#e8a13c;--bad:#d64545;--none:#d9d9d9}
@@ -130,6 +227,24 @@ section footer{display:flex;justify-content:space-between;color:var(--mut);font-
 .ev-name{font-weight:600}
 .ev-what{color:var(--mut);flex:1}
 .ev-when{color:var(--mut);font-variant-numeric:tabular-nums}
+.notice{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:10px}
+.notice header{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.notice.over{opacity:.62}
+.notice .md{font-size:14px}
+.notice .md p{margin:4px 0}
+.notice .md code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:13px}
+.notice .md ul{margin:4px 0 4px 18px}
+.chip{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:2px 8px;border-radius:99px;color:#fff;background:var(--mut)}
+.chip.outage{background:var(--bad)}.chip.degraded{background:var(--meh)}.chip.maintenance{background:#5b7bd5}.chip.done{background:var(--ok)}
+dialog{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:18px;width:min(440px,92vw)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog h3{margin-bottom:10px;font-size:15px}
+dialog input,dialog select,dialog textarea{width:100%;margin-bottom:8px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--fg);font:inherit}
+dialog footer{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+dialog button{padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer;font:inherit}
+dialog button.primary{background:var(--ok);border-color:var(--ok);color:#fff}
+#resolvables{display:flex;flex-direction:column;gap:6px;margin-bottom:6px}
+.ederr{color:var(--bad);font-size:13px;min-height:18px}
 .page-foot{margin-top:28px;color:var(--mut);font-size:12px;display:flex;justify-content:space-between}
 .page-foot a{color:inherit}
 </style>
@@ -137,9 +252,11 @@ section footer{display:flex;justify-content:space-between;color:var(--mut);font-
 <body>
 <h1>${esc(title)}</h1>
 <div class="banner ${bannerClass}"><span class="dot ${bannerClass === "ok" ? "ok" : "bad"}"></span>${t(lang, banner)}</div>
+${noticesSection(noticeList, lang)}
 ${items}
 ${eventsSection(data, events, lang)}
 <div class="page-foot"><span>${t(lang, "updated")}: ${now} UTC</span><a href="https://github.com/productdevbook/nabiz">nabiz</a></div>
+${editor(lang)}
 </body>
 </html>`
 }

@@ -62,3 +62,13 @@ CREATE TABLE IF NOT EXISTS events (
   ok INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS events_by_time ON events (at);
+
+-- What the operator said, in their own words. A probe can say a thing is
+-- down; only a person can say why, and when to expect it back.
+CREATE TABLE IF NOT EXISTS notices (
+  id INTEGER PRIMARY KEY,
+  at INTEGER NOT NULL,
+  severity TEXT NOT NULL DEFAULT 'info',
+  body_md TEXT NOT NULL,
+  resolved_at INTEGER
+);
