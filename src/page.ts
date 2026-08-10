@@ -324,7 +324,7 @@ h1{font-size:19px;font-weight:650;letter-spacing:-.2px}
 .foot-meta{display:flex;justify-content:space-between;gap:10px}
 .foot-meta a{text-decoration:none}
 #pen{margin-right:4px}
-dialog{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:16px;padding:22px;width:min(480px,92vw);box-shadow:0 12px 40px rgba(8,10,16,.18)}
+dialog{margin:auto;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:16px;padding:22px;width:min(480px,92vw);box-shadow:0 12px 40px rgba(8,10,16,.18)}
 dialog::backdrop{background:rgba(8,10,14,.45);backdrop-filter:blur(2px)}
 dialog[open]{animation:pop .18s ease-out}
 @keyframes pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
