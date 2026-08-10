@@ -1,89 +1,83 @@
-/* The page's design system, compiled by Tailwind's CLI into
- * styles.built.css — which is committed, so deploying needs no build step:
- * `bun run css` after touching this file is the whole pipeline. */
+/* The page's design system. Astro's Tailwind plugin compiles it at build
+ * time; `bun run dev` repaints it on every save.
+ *
+ * Green-tempered neutrals, two-layer panels (panel + recessed well), one
+ * radius law: outer surfaces are 20, everything inside them shares the
+ * concentric 8 (20 − 12 inset), with Apple-style continuous corners where
+ * the browser has corner-shape. Data is ticks and hairlines, never slabs. */
 @import "tailwindcss";
 
 @theme {
-  --color-ok: #1a9e6c;
-  --color-meh: #dd9a2b;
-  --color-bad: #d64545;
-  --color-info: #5b7bd5;
-  --color-bg: #f6f7f9;
-  --color-card: #ffffff;
-  --color-fg: #191b1f;
-  --color-mut: #697077;
-  --color-line: #e6e8ec;
-  --color-none: #dcdfe4;
+  --color-ok: var(--ok);
+  --color-meh: var(--meh);
+  --color-bad: var(--bad);
+  --color-info: var(--acc);
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-mut: var(--mut);
+  --color-line: var(--line);
+  --color-none: var(--none);
 }
 
-/* One dark theme, driven by the reader's system — the tokens flip, the
- * components never have to know. */
 @layer base {
+  /* Green-tempered neutrals: on a status page green is the brand, so even
+   * the greys lean a degree toward it instead of sitting at pure grey. */
   :root {
-    --shadow-soft: 0 1px 2px rgba(16, 20, 28, 0.05), 0 4px 16px rgba(16, 20, 28, 0.04);
+    color-scheme: light dark;
+    --ok: #148a55;
+    --meh: #bd7b18;
+    --bad: #d0453b;
+    --acc: #3b6ee0;
+    --bg: #f4f6f5;
+    --panel: #ffffff;
+    --fg: #171d1a;
+    --mut: #64716a;
+    --line: #e4eae6;
+    --none: #e0e6e2;
+    --well: #f8faf9;
   }
   @media (prefers-color-scheme: dark) {
-    :root {
-      --color-bg: #0e0f12;
-      --color-card: #17181d;
-      --color-fg: #eceef1;
-      --color-mut: #9aa1a9;
-      --color-line: #25272e;
-      --color-none: #2e3138;
-      --shadow-soft: none;
+    :root:not([data-theme="light"]) {
+      --ok: #37cd86;
+      --meh: #e8a558;
+      --bad: #ef7166;
+      --acc: #7195ee;
+      --bg: #101413;
+      --panel: #1b201e;
+      --fg: #e9edeb;
+      --mut: #8da095;
+      --line: #2b322e;
+      --none: #313834;
+      --well: #121614;
     }
   }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ok: #37cd86;
+    --meh: #e8a558;
+    --bad: #ef7166;
+    --acc: #7195ee;
+    --bg: #101413;
+    --panel: #1b201e;
+    --fg: #e9edeb;
+    --mut: #8da095;
+    --line: #2b322e;
+    --none: #313834;
+    --well: #121614;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+  }
+
   body {
-    @apply bg-bg text-fg mx-auto max-w-[720px] px-5 pt-7 pb-14 text-[15px] leading-[1.55];
+    @apply bg-bg text-fg mx-auto max-w-[720px] px-5 pt-9 pb-16 text-[14px] leading-[1.55];
     font-family:
+      ui-sans-serif,
       system-ui,
       -apple-system,
       "Segoe UI",
       sans-serif;
-  }
-  /* Light leaking in from the page's own edges — felt, not seen. */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: -1;
-    background:
-      radial-gradient(640px 420px at -8% -6%, rgb(26 158 108 / 0.1), transparent 62%),
-      radial-gradient(760px 520px at 108% 24%, rgb(91 123 213 / 0.09), transparent 64%),
-      radial-gradient(520px 380px at 92% 96%, rgb(26 158 108 / 0.06), transparent 60%);
-  }
-  /* The laser: a hair-thin line on the page's right edge, gliding down and
-   * back up — the pulse of the thing, made visible. Stilled for readers
-   * who asked their system for less motion. */
-  body::after {
-    content: "";
-    position: fixed;
-    top: 0;
-    right: 0;
-    width: 2px;
-    height: 34vh;
-    z-index: 0;
-    pointer-events: none;
-    background: linear-gradient(to bottom, transparent, var(--color-ok) 30% 70%, transparent);
-    filter: drop-shadow(0 0 6px rgb(26 158 108 / 0.75));
-    opacity: 0.65;
-    animation: laser 6.5s ease-in-out infinite alternate;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    body::after {
-      animation: none;
-      opacity: 0.2;
-      top: 33vh;
-    }
-  }
-  @media (prefers-color-scheme: dark) {
-    body::before {
-      background:
-        radial-gradient(640px 420px at -8% -6%, rgb(26 158 108 / 0.16), transparent 62%),
-        radial-gradient(760px 520px at 108% 24%, rgb(91 123 213 / 0.14), transparent 64%),
-        radial-gradient(520px 380px at 92% 96%, rgb(26 158 108 / 0.1), transparent 60%);
-    }
+    -webkit-font-smoothing: antialiased;
   }
   a {
     color: inherit;
@@ -91,157 +85,387 @@
 }
 
 @layer components {
+  /* ---- header ---- */
   .top {
-    @apply mb-[22px] flex items-center justify-between gap-3;
+    @apply mb-7 flex items-center justify-between gap-3;
+  }
+  .brand {
+    @apply flex items-center gap-2.5;
+  }
+  /* Icon tiles: a soft tint of the hue behind the hue itself — the glyph
+   * and its ground come from the same color, never white-on-solid. */
+  .mark {
+    @apply flex size-9 flex-none items-center justify-center rounded-[8px];
+    color: var(--ok);
+    background: var(--none);
+    background: color-mix(in srgb, var(--ok) 14%, var(--panel));
+  }
+  .mark svg {
+    @apply size-[18px];
   }
   .top h1 {
-    @apply text-[19px] font-[650] tracking-[-0.2px];
+    @apply text-[17px] font-semibold tracking-[-0.2px];
   }
+  .ctrl {
+    @apply flex items-center gap-2;
+  }
+  #lang,
+  #theme {
+    @apply border-line text-fg h-9 rounded-full border px-3.5 text-[13px];
+    background: var(--panel);
+    font-family: inherit;
+    transition: border-color 0.13s;
+  }
+  /* The native arrow floats to the far edge; draw our own next to the text. */
   #lang {
-    @apply border-line bg-card text-fg rounded-[9px] border px-2.5 py-1.5 text-[13px];
-    box-shadow: var(--shadow-soft);
+    @apply cursor-pointer appearance-none pr-8;
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%238a938e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 11px center;
+    background-size: 14px;
   }
-  .card {
-    @apply bg-card border-line rounded-[14px] border;
-    box-shadow: var(--shadow-soft);
+  #theme {
+    @apply flex w-9 cursor-pointer items-center justify-center px-0;
   }
-  .banner {
-    @apply mb-[26px] flex items-center gap-3 px-5 py-[18px] text-[16px] font-[650];
+  #lang:hover,
+  #theme:hover {
+    border-color: var(--mut);
   }
-  .banner.meh {
-    border-color: rgb(221 154 43 / 0.5);
+  #theme svg {
+    @apply size-4;
   }
-  .banner.bad {
-    border-color: rgb(214 69 69 / 0.5);
+  #theme .sun {
+    display: none;
   }
-  .dot {
-    @apply bg-none relative size-[9px] flex-none rounded-full;
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) #theme .sun {
+      display: block;
+    }
+    :root:not([data-theme="light"]) #theme .moon {
+      display: none;
+    }
   }
-  .dot.ok {
-    @apply bg-ok;
+  :root[data-theme="dark"] #theme .sun {
+    display: block;
   }
-  .dot.bad {
-    @apply bg-bad;
+  :root[data-theme="dark"] #theme .moon {
+    display: none;
   }
-  .banner .dot {
-    @apply size-[11px];
+  :root[data-theme="light"] #theme .sun {
+    display: none;
   }
-  .banner .dot.ok::after {
-    content: "";
-    @apply border-ok absolute -inset-[5px] rounded-full border-2 opacity-35;
-    animation: ring 2.4s ease-out infinite;
+  :root[data-theme="light"] #theme .moon {
+    display: block;
   }
+
+  /* ---- surfaces: a panel with its own header, content in a well ---- */
+  /* Apple's continuous-curvature corner; browsers without it draw arcs. */
+  .card,
+  .panel,
+  .callout,
+  .well,
+  .mark,
+  .hero .dot,
+  .events li .dot,
+  .panel-h a,
+  dialog,
+  dialog textarea {
+    corner-shape: squircle;
+  }
+  .card,
+  .panel {
+    @apply border-line rounded-[20px] border;
+    background: var(--panel);
+  }
+  .panel {
+    @apply mt-8 overflow-hidden;
+  }
+  .panel-h {
+    @apply flex items-center gap-3 px-5 pt-[18px] pb-3.5;
+  }
+  .panel-h h2 {
+    @apply flex-1 text-[14.5px] font-semibold tracking-[-0.1px];
+  }
+  .panel-h span {
+    @apply text-mut text-[12.5px] tabular-nums;
+  }
+  .panel-h a {
+    @apply text-mut hover:text-fg flex size-7 items-center justify-center rounded-[8px] no-underline;
+    transition:
+      color 0.13s,
+      background 0.13s;
+  }
+  .panel-h a:hover {
+    background: var(--none);
+  }
+  .panel-h a svg {
+    @apply size-[15px];
+  }
+  /* Concentric rule: inner = outer − inset (20 − 12 = 8), and every
+   * element one level in shares that same 8. */
+  .well {
+    @apply border-line mx-3 mb-3 rounded-[8px] border;
+    background: var(--well);
+  }
+
+  /* ---- the hero: the page's one-second answer, with a pulse under it ---- */
+  .hero {
+    @apply relative mb-8 flex items-center gap-4 overflow-hidden px-6 pt-6 pb-11;
+  }
+  .hero .dot {
+    @apply flex size-10 flex-none items-center justify-center rounded-[8px];
+    --hue: var(--ok);
+    color: var(--hue);
+    background: var(--none);
+    background: color-mix(in srgb, var(--hue) 14%, var(--panel));
+  }
+  .hero .dot svg {
+    @apply size-5;
+  }
+  .hero .dot.meh {
+    --hue: var(--meh);
+  }
+  .hero .dot.bad {
+    --hue: var(--bad);
+  }
+  .hero-s {
+    @apply text-[20px] leading-tight font-semibold tracking-[-0.3px];
+    text-wrap: balance;
+  }
+  .hero-m {
+    @apply text-mut mt-1 text-[12.5px] tabular-nums;
+  }
+  .ekg {
+    @apply pointer-events-none absolute inset-x-0 bottom-[6px] h-[34px] w-full opacity-30;
+    color: var(--ok);
+  }
+  .hero.meh .ekg {
+    color: var(--meh);
+  }
+  .hero.bad .ekg {
+    color: var(--bad);
+  }
+  .ekg path {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: trace 1.6s ease-out 0.2s forwards;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ekg path {
+      animation: none;
+      stroke-dashoffset: 0;
+    }
+  }
+
+  /* ---- notices ---- */
   .callout {
-    @apply border-line border-l-mut bg-card mb-3.5 rounded-[14px] border border-l-4 px-[18px] py-3.5;
-    box-shadow: var(--shadow-soft);
+    @apply border-line mb-4 rounded-[20px] border p-4 px-5;
+    background: var(--panel);
+    --hue: var(--mut);
   }
   .callout.info,
   .callout.maintenance {
-    @apply border-l-info;
+    --hue: var(--acc);
   }
   .callout.degraded {
-    @apply border-l-meh;
+    --hue: var(--meh);
   }
   .callout.outage {
-    @apply border-l-bad;
+    --hue: var(--bad);
   }
   .callout header,
   .past header {
-    @apply mb-2 flex items-center justify-between gap-2 leading-none;
+    @apply mb-2 flex items-center justify-between gap-3;
   }
   .callout time,
   .past time,
   .events time {
-    @apply text-mut text-xs tabular-nums;
+    @apply text-mut text-[12px] tabular-nums;
   }
   .chip {
-    @apply bg-mut inline-flex h-[19px] items-center rounded-full px-[9px] text-[10px] leading-none font-[750] tracking-[0.55px] text-white uppercase;
-    padding-top: 0.5px; /* optical: uppercase sits a hair high in the pill */
+    @apply inline-flex h-[22px] items-center gap-1.5 rounded-full border px-2.5 text-[11.5px] leading-none font-semibold;
+    --hue: var(--mut);
+    color: var(--fg);
+    border-color: var(--line);
+    background: var(--bg);
+  }
+  .chip::before {
+    content: "";
+    @apply size-[6px] flex-none rounded-full;
+    background: var(--hue);
   }
   .chip.outage {
-    @apply bg-bad;
+    --hue: var(--bad);
   }
   .chip.degraded {
-    @apply bg-meh;
+    --hue: var(--meh);
   }
   .chip.info,
   .chip.maintenance {
-    @apply bg-info;
+    --hue: var(--acc);
   }
   .chip.done {
-    @apply bg-ok;
+    --hue: var(--ok);
   }
   .md {
-    @apply text-sm;
+    @apply text-[13.5px] leading-[1.6];
   }
   .md p {
-    @apply my-[3px];
+    @apply my-1;
   }
   .md code {
-    @apply bg-bg border-line rounded-[5px] border px-[5px] text-[13px];
+    @apply rounded-md px-1.5 py-[1px] text-[12.5px];
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--bg);
+    border: 1px solid var(--line);
   }
   .md ul {
-    @apply mt-[5px] mb-[3px] ml-[19px] list-disc;
+    @apply mt-1.5 mb-1 ml-5 list-disc;
   }
   .md a {
-    @apply text-info no-underline hover:underline;
+    color: var(--acc);
+    @apply no-underline hover:underline;
   }
+
+  /* ---- sections ---- */
   .sect {
-    @apply text-mut mt-[26px] mb-2.5 text-[13px] font-[650] tracking-[0.6px] uppercase;
+    @apply text-fg mt-9 mb-3.5 text-[15px] font-semibold tracking-[-0.1px] normal-case;
+    letter-spacing: -0.1px;
   }
+
+  /* ---- services: name and pill left, uptime the big right figure ---- */
   .svc {
-    @apply px-5 pt-[15px] pb-[13px];
+    @apply px-5 pt-4 pb-3.5;
   }
   .svc + .svc {
     @apply border-line border-t;
   }
   .svc header {
-    @apply flex items-center gap-2.5;
+    @apply flex items-center justify-between gap-3;
+  }
+  .who {
+    @apply flex min-w-0 items-center gap-2.5;
   }
   .svc h3 {
-    @apply flex-1 text-[14.5px] font-semibold;
+    @apply truncate text-[14.5px] font-semibold tracking-[-0.1px];
   }
-  .num {
-    @apply text-mut text-[13px] tabular-nums;
+  .state {
+    @apply inline-flex h-[22px] items-center gap-1.5 rounded-full border px-2.5 text-[11.5px] leading-none font-medium;
+    color: var(--mut);
+    border-color: var(--line);
+    background: var(--bg);
+  }
+  .state::before {
+    content: "";
+    @apply size-[6px] flex-none rounded-full;
+  }
+  .state.ok::before {
+    background: var(--ok);
+  }
+  .state.bad::before {
+    background: var(--bad);
+  }
+  .state.none::before {
+    background: var(--mut);
+  }
+  /* The vital chip: the service's own little monitor screen — a live
+   * waveform and its reading, sibling to the state pill. */
+  .tele {
+    @apply text-mut inline-flex h-[24px] flex-none items-center gap-2 rounded-full border px-2.5;
+    border-color: var(--line);
+    background: var(--bg);
+  }
+  .ms {
+    @apply text-[11.5px] leading-none tabular-nums;
   }
   .spark {
-    @apply text-ok mr-0.5 opacity-65;
+    @apply text-mut block;
   }
+  .tele.ok .spark {
+    color: var(--ok);
+  }
+  .tele.bad .spark {
+    color: var(--bad);
+  }
+  .pct {
+    @apply text-fg text-[16px] leading-none font-semibold tracking-[-0.3px] tabular-nums;
+  }
+  .pct.none {
+    @apply text-mut font-normal;
+  }
+  /* History as day bars: confident blocks, one per day, growing under
+   * the cursor so the day and its number feel touchable. */
   .bars {
-    @apply mt-2.5 mb-[7px] flex gap-0.5;
+    @apply mt-3.5 mb-2 flex h-[26px] items-stretch gap-[3px];
   }
   .bars i {
-    @apply bg-none h-6 flex-1 rounded-[2.5px];
+    @apply min-w-0 flex-1 rounded-[2px];
+    background: var(--none);
+    transition:
+      transform 0.12s ease,
+      filter 0.12s ease;
+  }
+  .bars i:hover {
+    transform: scaleY(1.18);
+    filter: brightness(1.12);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bars i,
+    .bars i:hover {
+      transition: none;
+      transform: none;
+    }
   }
   .bars i.ok {
-    @apply bg-ok;
+    background: var(--ok);
   }
   .bars i.meh {
-    @apply bg-meh;
+    background: var(--meh);
   }
   .bars i.bad {
-    @apply bg-bad;
+    background: var(--bad);
   }
+  /* The footer is the time axis, oldest to newest. */
   .svc footer {
-    @apply text-mut flex justify-between text-xs;
+    @apply text-mut flex justify-between text-[11.5px];
+  }
+  @media (max-width: 480px) {
+    .tele .spark {
+      display: none;
+    }
   }
   .stack .past {
-    @apply px-5 py-[13px];
+    @apply px-4 py-3.5;
   }
   .stack .past + .past {
     @apply border-line border-t;
   }
-  .past {
-    @apply opacity-75;
+  .past .md {
+    @apply text-mut;
   }
+
+  /* ---- events ---- */
   .events {
-    @apply list-none px-5 py-[5px];
+    @apply list-none px-4 py-1;
   }
   .events li {
-    @apply flex items-center gap-2.5 py-[9px] text-[13.5px];
+    @apply flex items-center gap-3 py-3.5 text-[13.5px];
   }
   .events li + li {
     @apply border-line border-t;
+  }
+  .events li .dot {
+    @apply flex size-7 flex-none items-center justify-center rounded-[8px];
+    --hue: var(--ok);
+    color: var(--hue);
+    background: var(--none);
+    background: color-mix(in srgb, var(--hue) 14%, var(--panel));
+  }
+  .events li .dot.bad {
+    --hue: var(--bad);
+  }
+  .events li .dot svg {
+    @apply size-3.5;
   }
   .events b {
     @apply font-semibold;
@@ -249,125 +473,147 @@
   .events .what {
     @apply text-mut flex-1;
   }
+
+  /* ---- footer: brand on the left, the machine doors on the right ---- */
   .foot {
-    @apply text-mut mt-[34px] text-[12.5px];
+    @apply border-line mt-14 border-t pt-8;
   }
-  .foot-links {
-    @apply mb-2 flex flex-wrap items-center gap-2;
+  .foot-grid {
+    @apply flex flex-wrap items-start justify-between gap-x-12 gap-y-7;
   }
-  .foot-links a {
-    @apply no-underline opacity-85 hover:underline hover:opacity-100;
+  .foot-brand {
+    @apply flex items-center gap-3;
   }
-  .foot-links s {
-    @apply no-underline opacity-40;
+  .foot-brand strong {
+    @apply text-[14px] font-semibold tracking-[-0.1px];
   }
-  .foot-meta {
-    @apply flex justify-between gap-2.5;
+  .foot-brand p {
+    @apply text-mut mt-0.5 text-[12px];
   }
-  .foot-meta a {
-    @apply no-underline;
+  .foot-col {
+    @apply flex min-w-[110px] flex-col gap-2;
+  }
+  .foot-col h4 {
+    @apply text-mut text-[11px] font-semibold tracking-[0.06em] uppercase;
+  }
+  .foot-col a {
+    @apply text-mut hover:text-fg w-fit text-[12.5px] no-underline;
+    transition: color 0.13s;
+  }
+  .foot-base {
+    @apply text-mut mt-9 flex items-center justify-between text-[12px] tabular-nums;
   }
   #pen {
-    @apply mr-1;
+    @apply hover:text-fg inline-flex size-6 items-center justify-center;
+  }
+  #pen svg {
+    @apply size-3.5;
   }
 
+  /* ---- the editor ---- */
   dialog {
-    @apply bg-card text-fg border-line m-auto w-[min(480px,92vw)] rounded-2xl border p-[22px];
-    box-shadow: 0 12px 40px rgba(8, 10, 16, 0.18);
+    @apply border-line text-fg m-auto w-[min(480px,94vw)] rounded-[20px] border p-6;
+    background: var(--panel);
+    box-shadow: 0 16px 48px rgba(10, 12, 16, 0.16);
   }
   dialog::backdrop {
-    background: rgba(8, 10, 14, 0.45);
-    backdrop-filter: blur(2px);
+    background: rgba(12, 14, 18, 0.4);
   }
   dialog[open] {
-    animation: pop 0.18s ease-out;
+    animation: rise 0.18s ease-out;
   }
   dialog h3 {
-    @apply mb-3.5 text-[16px] font-[650] tracking-[-0.2px];
+    @apply mb-4 text-[16px] font-semibold tracking-[-0.2px];
   }
   .seg {
-    @apply mb-2.5 flex flex-wrap gap-1.5;
+    @apply mb-3 flex gap-1.5;
   }
   .seg button {
-    @apply border-line bg-bg text-mut flex-1 cursor-pointer rounded-[9px] border px-1 py-[7px] text-[12.5px] font-semibold whitespace-nowrap;
+    @apply border-line text-mut flex-1 cursor-pointer rounded-full border px-1 py-2 text-[12px] font-semibold;
+    background: var(--bg);
+    font-family: inherit;
+    transition: all 0.13s;
   }
   .seg button.on {
-    @apply border-transparent text-white;
+    @apply text-white;
+    background: var(--seg, var(--fg));
+    border-color: var(--seg, var(--fg));
   }
   .seg button.on.info,
   .seg button.on.maintenance {
-    @apply bg-info;
+    --seg: var(--acc);
   }
   .seg button.on.degraded {
-    @apply bg-meh;
+    --seg: var(--meh);
   }
   .seg button.on.outage {
-    @apply bg-bad;
+    --seg: var(--bad);
   }
   dialog textarea {
-    @apply border-line bg-bg text-fg mb-2.5 w-full resize-y rounded-[11px] border px-3 py-[11px] text-[13.5px] leading-normal;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    @apply border-line text-fg mb-2.5 w-full resize-y rounded-[8px] border p-3.5 text-[13.5px] leading-[1.6];
+    background: var(--bg);
+    font-family: inherit;
   }
   .pair {
-    @apply mb-1.5 flex gap-2;
+    @apply mb-2 flex gap-2;
   }
   .pair select,
   .pair input {
-    @apply border-line bg-bg text-fg min-w-0 flex-1 rounded-[10px] border px-[11px] py-[9px] text-[13.5px];
+    @apply border-line text-fg min-w-0 flex-1 rounded-full border px-3.5 py-2 text-[13px];
+    background: var(--bg);
+    font-family: inherit;
   }
   dialog textarea:focus,
   .pair select:focus,
   .pair input:focus {
-    @apply outline-info border-transparent outline-2 -outline-offset-1;
+    outline: none;
+    border-color: var(--fg);
   }
   dialog footer {
-    @apply mt-2 flex justify-end gap-2;
+    @apply mt-3.5 flex justify-end gap-2;
   }
   dialog footer button {
-    @apply border-line bg-bg text-fg cursor-pointer rounded-[10px] border px-[18px] py-[9px] text-sm font-[550];
+    @apply border-line text-fg cursor-pointer rounded-full border px-4.5 py-2 text-[13.5px] font-semibold;
+    background: var(--panel);
+    font-family: inherit;
+    transition: all 0.13s;
+  }
+  dialog footer button:hover {
+    border-color: var(--mut);
   }
   dialog footer button.primary {
-    @apply bg-ok border-ok text-white hover:brightness-[1.06];
+    @apply border-0 text-white;
+    background: var(--fg);
+    color: var(--bg);
+  }
+  dialog footer button.primary:hover {
+    opacity: 0.9;
   }
   #resolvables {
-    @apply mb-1 flex flex-col gap-1.5;
+    @apply mb-1.5 flex flex-col gap-1.5;
   }
   #resolvables .res {
-    @apply border-line text-mut hover:text-fg cursor-pointer rounded-[10px] border border-dashed bg-transparent px-3 py-2 text-left text-[13px] hover:border-solid;
+    @apply border-line text-mut hover:text-fg cursor-pointer rounded-full border border-dashed bg-transparent px-3.5 py-2 text-left text-[12.5px] hover:border-solid;
+    font-family: inherit;
   }
   .ederr {
-    @apply text-bad min-h-[18px] text-[13px];
+    @apply text-bad min-h-[18px] text-[12.5px];
   }
 }
 
-@keyframes ring {
-  0% {
-    transform: scale(0.5);
-    opacity: 0.5;
-  }
-  80% {
-    transform: scale(1.15);
-    opacity: 0;
-  }
-  100% {
-    opacity: 0;
+@keyframes trace {
+  to {
+    stroke-dashoffset: 0;
   }
 }
-@keyframes pop {
+
+@keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.98);
+    transform: translateY(8px) scale(0.99);
   }
   to {
     opacity: 1;
     transform: none;
-  }
-}
-@keyframes laser {
-  from {
-    transform: translateY(-34vh);
-  }
-  to {
-    transform: translateY(100vh);
   }
 }

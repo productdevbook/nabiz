@@ -3,8 +3,9 @@
 # a file — a monitor's URL is often somebody's hostname, and this repository
 # is public.
 name = "nabiz"
-main = "src/index.ts"
+main = "src/worker.ts"
 compatibility_date = "2026-08-01"
+compatibility_flags = ["nodejs_compat"]
 
 [triggers]
 crons = ["* * * * *"]
@@ -26,7 +27,3 @@ TITLE = "nabiz"
 # To serve on your own hostname, uncomment and let Cloudflare make the DNS:
 # routes = [{ pattern = "status.example.com", custom_domain = true }]
 
-# The stylesheet travels as a string the worker inlines into the page.
-[[rules]]
-type = "Text"
-globs = ["**/*.css"]

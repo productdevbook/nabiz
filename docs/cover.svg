@@ -1,62 +1,40 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-label="nabiz — a status page that keeps beating when your server does not">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" role="img" aria-label="nabiz — a status page that keeps beating when your server does not">
   <defs>
-    <filter id="glow" x="-20%" y="-200%" width="140%" height="500%">
-      <feGaussianBlur stdDeviation="6" result="b"/>
+    <filter id="glow" x="-20%" y="-300%" width="140%" height="700%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
       <feMerge>
         <feMergeNode in="b"/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
     <linearGradient id="fade" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#22a06b" stop-opacity="0"/>
-      <stop offset="0.12" stop-color="#22a06b" stop-opacity="1"/>
-      <stop offset="0.88" stop-color="#22a06b" stop-opacity="1"/>
-      <stop offset="1" stop-color="#22a06b" stop-opacity="0"/>
+      <stop offset="0" stop-color="#37cd86" stop-opacity="0"/>
+      <stop offset="0.1" stop-color="#37cd86" stop-opacity="0.9"/>
+      <stop offset="0.9" stop-color="#37cd86" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#37cd86" stop-opacity="0"/>
     </linearGradient>
   </defs>
 
-  <rect width="1200" height="360" rx="12" fill="#111214"/>
-  <rect x="0.5" y="0.5" width="1199" height="359" rx="12" fill="none" stroke="#2a2d31"/>
+  <rect x="4" y="4" width="1192" height="292" rx="24" fill="#101413"/>
+  <rect x="4.5" y="4.5" width="1191" height="291" rx="24" fill="none" stroke="#2b322e"/>
+
+  <!-- brand tile: the hue over its own tint, radius = size / 4 -->
+  <rect x="72" y="84" width="56" height="56" rx="14" fill="#1f382c"/>
+  <g transform="translate(85, 97) scale(1.25)" fill="none" stroke="#37cd86" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+    <path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/>
+  </g>
+
+  <text x="152" y="122" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="44" font-weight="700" letter-spacing="-1" fill="#e9edeb">nabiz</text>
+  <text x="152" y="156" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="18" fill="#8da095">A status page that keeps beating when your server does not.</text>
+  <text x="152" y="184" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="14" fill="#5c6a63">One Cloudflare Worker · D1 · a cron a minute · free tier</text>
 
   <!-- the pulse -->
-  <path d="M 0 110
-           L 250 110 L 270 96 L 290 110
-           L 470 110 L 495 110 L 512 58 L 532 156 L 548 110
-           L 780 110 L 800 96 L 820 110
-           L 1200 110"
-        fill="none" stroke="url(#fade)" stroke-width="3.5"
+  <path d="M 40 240
+           L 300 240 L 318 228 L 336 240
+           L 540 240 L 560 240 L 576 196 L 596 278 L 612 240
+           L 880 240 L 898 228 L 916 240
+           L 1160 240"
+        fill="none" stroke="url(#fade)" stroke-width="2.5"
         stroke-linejoin="round" stroke-linecap="round" filter="url(#glow)"/>
-
-  <!-- wordmark -->
-  <text x="600" y="225" text-anchor="middle"
-        font-family="ui-sans-serif, -apple-system, 'Segoe UI', sans-serif"
-        font-size="84" font-weight="700" fill="#ececec" letter-spacing="-2">nabiz</text>
-  <text x="600" y="266" text-anchor="middle"
-        font-family="ui-sans-serif, -apple-system, 'Segoe UI', sans-serif"
-        font-size="19" fill="#9a9a9a">A status page that keeps beating when your server does not.</text>
-
-  <!-- uptime bars, one bad day among the good ones -->
-  <g transform="translate(475, 300)">
-    <rect x="0"   width="8" height="22" rx="2" fill="#22a06b"/>
-    <rect x="12"  width="8" height="22" rx="2" fill="#22a06b"/>
-    <rect x="24"  width="8" height="22" rx="2" fill="#22a06b"/>
-    <rect x="36"  width="8" height="22" rx="2" fill="#22a06b"/>
-    <rect x="48"  width="8" height="22" rx="2" fill="#22a06b"/>
-    <rect x="60"  width="8" height="22" rx="2" fill="#22a06b"/>
-    <rect x="72"  width="8" height="22" rx="2" fill="#22a06b"/>
-    <rect x="84"  width="8" height="22" rx="2" fill="#e8a13c"/>
-    <rect x="96"  width="8" height="22" rx="2" fill="#22a06b"/>
-    <rect x="108" width="8" height="22" rx="2" fill="#22a06b"/>
-    <rect x="120" width="8" height="22" rx="2" fill="#22a06b"/>
-    <rect x="132" width="8" height="22" rx="2" fill="#22a06b"/>
-    <rect x="144" width="8" height="22" rx="2" fill="#22a06b"/>
-    <rect x="156" width="8" height="22" rx="2" fill="#22a06b"/>
-    <rect x="168" width="8" height="22" rx="2" fill="#22a06b"/>
-    <rect x="180" width="8" height="22" rx="2" fill="#22a06b"/>
-    <rect x="192" width="8" height="22" rx="2" fill="#22a06b"/>
-    <rect x="204" width="8" height="22" rx="2" fill="#22a06b"/>
-    <rect x="216" width="8" height="22" rx="2" fill="#22a06b"/>
-    <rect x="228" width="8" height="22" rx="2" fill="#22a06b"/>
-    <rect x="240" width="8" height="22" rx="2" fill="#22a06b"/>
-  </g>
 </svg>

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { render } from "../src/markdown"
+import { render } from "../src/lib/markdown"
 
 describe("a notice renders what was meant and nothing that was smuggled", () => {
   test("html arrives as text, never as markup", () => {

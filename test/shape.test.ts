@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 
-import type { Monitor } from "../src/probe"
-import { eventsView, overall, rows, uptimeOf } from "../src/shape"
-import type { PageData } from "../src/store"
+import type { Monitor } from "../src/lib/probe"
+import { eventsView, overall, rows, uptimeOf } from "../src/lib/shape"
+import type { PageData } from "../src/lib/store"
 
 let nextId = 0
 function monitor(over: Partial<Monitor> = {}): Monitor {

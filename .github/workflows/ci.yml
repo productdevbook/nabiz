@@ -20,5 +20,6 @@ jobs:
       - run: bunx oxlint --deny-warnings
       - run: bunx oxfmt --check src test
       - run: bun test
-      # The committed stylesheet must be what the source compiles to.
-      - run: bun run css && git diff --exit-code src/styles.built.css
+      # The build is the rest of the typecheck: it generates the route
+      # tree and compiles the components tsc never sees.
+      - run: bun run build

@@ -21,8 +21,9 @@ function json(body: unknown, status = 200): Response {
 
 export function statusJson(data: PageData, events: EventRow[]): Response {
   const list = rows(data)
-  return json({
-    status: overall(list),
+  const state = overall(list)
+  const res = json({
+    status: state,
     updated_at: new Date().toISOString(),
     monitors: list.map((r) => {
       const m: Record<string, unknown> = {
@@ -40,6 +41,8 @@ export function statusJson(data: PageData, events: EventRow[]): Response {
       status: e.ok ? "up" : "down",
     })),
   })
+  res.headers.set("x-status", state)
+  return res
 }
 
 export function historyJson(data: PageData): Response {
@@ -154,6 +157,19 @@ served here but named elsewhere; they are counted, never listed.
 Every read endpoint takes ?lang= (en, tr, de, es, fr): the page and the
 feed translate their words, and notices written for one language are
 served only to it — a notice with no language speaks to everyone.
+
+## For machines
+
+The page answers to the shape of the request, so the cheapest question
+works:
+
+- HEAD ${origin}/ — the "x-status" response header says up, degraded or
+  down; no body needed. ${origin}/api/status.json carries it too.
+- GET ${origin}/ with "Accept: application/json" (and no text/html)
+  returns the status.json body instead of HTML.
+- A Link header on / points to this file, the JSON and the RSS feed;
+  the HTML head carries the same links as <link rel="alternate">.
+- robots.txt allows everyone; there is nothing here worth hiding.
 
 All JSON is read-only, CORS-open, and uncached: what you get is what is
 true at the moment you asked. Writing exists too, for the operator:

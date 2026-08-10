@@ -2,11 +2,14 @@
   <img src="docs/cover.svg" alt="nabiz — a status page that keeps beating when your server does not" width="100%">
 </p>
 
+[![CI](https://github.com/productdevbook/nabiz/actions/workflows/ci.yml/badge.svg)](https://github.com/productdevbook/nabiz/actions/workflows/ci.yml)
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/productdevbook/nabiz)
 
 # nabiz
 
-*From the Turkish **nabız** — "pulse", as in keeping a finger on one. Spelled `nabiz` everywhere, because the dotless ı deserves better than being typed wrong.*
+*From the Turkish **nabız** — "pulse", as in keeping a finger on one.
+Spelled `nabiz` everywhere, because the dotless ı deserves better than
+being typed wrong.*
 
 A status page that keeps beating when your server does not. One Cloudflare
 Worker probes your endpoints every minute from Cloudflare's edge, keeps the
@@ -14,38 +17,43 @@ history in D1, and serves the page itself — so when the machine it watches
 goes dark, the page saying so stays up. Fits entirely inside Cloudflare's
 free tier.
 
-![status page with uptime bars](docs/screenshot.png)
+The page is Astro rendering on the same Worker; the probing is a cron on
+it. One deployment, two duties.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
+  <img src="docs/screenshot-light.png" alt="the status page: uptime bars, vital chips, notices, events" width="100%">
+</picture>
 
 ## What it does
 
-- Probes every monitor once a minute; expected status, timeout and method
-  per monitor.
+- Probes every monitor once a minute; expected status, timeout, method and
+  optional **body matching** per monitor — when `expect_body` is set, a 200
+  with the wrong words in it is still a failure, because a database error
+  page and a healthy page can share a status code.
 - **One bad minute is weather, not an outage**: a monitor is called down
   only after `fail_threshold` probes in a row fail (default 2), while
   recovery is immediate. The bars still draw every measurement — the
   record and the verdict are different things.
-- Ninety days of uptime bars per monitor, a live latency figure with a
-  24-hour sparkline, an overall banner.
+- Ninety days of uptime per monitor as day bars, and a **vital chip** next
+  to each name: the last day of latency as a little waveform with its
+  current reading, in the color of the monitor's state.
 - **Grouped monitors**: hosts you serve but do not own are shown only as a
   tally — "6/6 up" — never by name. A public status page does not have to
   be a public customer list.
-- A **Recent events** list on the page: every change of state, kept for
-  half a year.
-- A Telegram message and/or a webhook on every state change — on the
-  change, not on every minute of an outage — with how long the previous
-  state had held.
-- Optional **body matching** per monitor: when `expect_body` is set, a 200
-  with the wrong words in it is still a failure — a database error page
-  and a healthy page can share a status code.
-- **An API, an RSS feed and an `llms.txt`**, because the readers of a
-  status page are no longer only people — and the ones that are can
-  subscribe from any feed reader, for nothing.
-- **Operator notices**: press `n` on the page (or open `/#notice`), give
-  the access token, and write what is happening in markdown — severity
-  chips for maintenance, degraded and outage, one-click resolve, and the
-  same thing over the API for scripts. What a probe can say is that a
-  thing is down; only a person can say why, and when to expect it back.
-- English, Turkish, German, Spanish and French out of the box.
+- **Operator notices**: press `n` on the page, give the access token, and
+  write what is happening in markdown — severity chips, per-language
+  notices, one-click resolve, the same over the API for scripts. A probe
+  can say that a thing is down; only a person can say why.
+- A **Recent events** list — every change of state, kept for half a year —
+  and a Telegram message and/or webhook on each change, with how long the
+  previous state had held.
+- English, Turkish, German, Spanish and French out of the box (`?lang=`,
+  default from the `LANG` var).
+- Light and dark, chosen by the visitor or the OS; the page refreshes
+  itself in place every 25 seconds.
+- **An API, an RSS feed, a badge and an `llms.txt`** — the readers of a
+  status page are no longer only people.
 
 ## What it deliberately does not do
 
@@ -58,16 +66,11 @@ running where the outage cannot reach it, for nothing.
 
 ```sh
 git clone https://github.com/productdevbook/nabiz && cd nabiz
-bun install                              # or npm / pnpm
-wrangler d1 create nabiz                 # put the id into wrangler.toml
-wrangler d1 execute nabiz --remote --file schema.sql
-wrangler deploy
+bun install
+bunx wrangler d1 create nabiz                        # put the id into wrangler.toml
+bunx wrangler d1 execute nabiz --remote --file schema.sql
+bun run deploy                                       # astro build + wrangler deploy
 ```
-
-The stylesheet is Tailwind, compiled ahead of time and committed
-(`src/styles.built.css`), so deploying needs no build step. Touch
-`src/styles.css` and run `bun run css`; CI refuses a commit where the
-two disagree.
 
 Then tell it what to watch — monitors are rows, not config, because this
 repository is public and your hostnames are yours:
@@ -80,15 +83,17 @@ INSERT INTO monitors (slug, name, url, group_name, grouped, position) VALUES
 ```
 
 ```sh
-wrangler d1 execute nabiz --remote --command "INSERT INTO monitors …"
+bunx wrangler d1 execute nabiz --remote --command "INSERT INTO monitors …"
 ```
 
-Optional, for alerts:
+Set the page's words in `wrangler.toml` (`TITLE`, `LANG`), and the secrets
+you want:
 
 ```sh
-wrangler secret put TELEGRAM_BOT_TOKEN
-wrangler secret put TELEGRAM_CHAT_ID
-wrangler secret put ALERT_WEBHOOK_URL
+bunx wrangler secret put ADMIN_TOKEN          # enables notices; without it, nothing writes
+bunx wrangler secret put TELEGRAM_BOT_TOKEN   # optional, for alerts
+bunx wrangler secret put TELEGRAM_CHAT_ID
+bunx wrangler secret put ALERT_WEBHOOK_URL
 ```
 
 To serve it on your own hostname, uncomment the `routes` line in
@@ -102,28 +107,49 @@ Everything the page knows, as JSON — read-only, CORS-open, uncached:
 |---|---|
 | `/api/status.json` | overall state, per-monitor status, 90-day uptime, latency, recent events |
 | `/api/history.json` | ninety days of daily totals and average latency per monitor |
-| `/badge.svg` | the overall state as a badge, for a readme |
-| `/feed.xml` | every change of state, as RSS |
-| `/llms.txt` | this table, in the shape agents look for |
 | `/api/notices.json` | operator notices, markdown and rendered |
+| `/badge.svg` | the overall state as a badge, for a readme |
+| `/feed.xml` | every change of state and every notice, as RSS |
+| `/llms.txt` | all of this, in the shape agents look for |
+| `/robots.txt` | everyone is welcome; machines are pointed at llms.txt |
 | `/health` | 204 — the status page's own pulse, with no database behind it |
 
-Writing needs the token (`wrangler secret put ADMIN_TOKEN`) and goes over
-`Authorization: Bearer`:
+Every read endpoint takes `?lang=` (en, tr, de, es, fr). Writing needs the
+token and goes over `Authorization: Bearer`:
 
 ```sh
 curl -X POST https://status.example.com/api/notice \
   -H "authorization: Bearer $TOKEN" -H "content-type: application/json" \
-  -d '{"severity": "maintenance", "body": "**Planned window** tonight, 02:00-03:00 UTC."}'
+  -d '{"severity": "maintenance", "lang": "all", "body": "**Planned window** tonight, 02:00-03:00 UTC."}'
 curl -X POST https://status.example.com/api/notice/resolve \
   -H "authorization: Bearer $TOKEN" -H "content-type: application/json" -d '{"id": 1}'
 ```
 
-No token set, no writing anywhere — the editor and both endpoints refuse,
-which is the right default for a page anyone can read.
-
 Grouped monitors keep their anonymity in the API too: a tally, never a
 member list.
+
+## For machines
+
+The page answers to the shape of the request, so an agent never has to
+scrape HTML:
+
+- **`HEAD /` is enough**: every page and JSON response carries an
+  `x-status` header — `up`, `degraded` or `down` — so the cheapest
+  possible request already answers the only question.
+- **`GET /` with `Accept: application/json`** (and no `text/html`) returns
+  the `status.json` body instead of the page.
+- A **`Link` header** on `/` points to `llms.txt`, the JSON and the RSS
+  feed; the HTML head carries the same as `<link rel="alternate">`.
+- **`/llms.txt`** explains all of it in prose, at the address agents
+  already look.
+
+## Development
+
+```sh
+bun run dev          # Astro dev server with a local D1 (miniflare)
+bunx wrangler d1 execute nabiz --local --file schema.sql   # once, to create it
+bun run check        # typecheck + lint + format + tests, what CI runs
+```
 
 ## Upgrading from earlier versions
 
@@ -131,14 +157,19 @@ Schema additions land as `ALTER`s; run whichever your database is missing:
 
 ```sh
 # v0.1 → v0.2
-wrangler d1 execute nabiz --remote --command "ALTER TABLE monitors ADD COLUMN expect_body TEXT"
-wrangler d1 execute nabiz --remote --command "CREATE TABLE events (monitor_id INTEGER NOT NULL, at INTEGER NOT NULL, ok INTEGER NOT NULL); CREATE INDEX events_by_time ON events (at)"
+bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE monitors ADD COLUMN expect_body TEXT"
+bunx wrangler d1 execute nabiz --remote --command "CREATE TABLE events (monitor_id INTEGER NOT NULL, at INTEGER NOT NULL, ok INTEGER NOT NULL); CREATE INDEX events_by_time ON events (at)"
 # v0.2 → v1.0
-wrangler d1 execute nabiz --remote --command "ALTER TABLE monitors ADD COLUMN fail_threshold INTEGER NOT NULL DEFAULT 2"
-wrangler d1 execute nabiz --remote --command "ALTER TABLE state ADD COLUMN fails INTEGER NOT NULL DEFAULT 0"
+bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE monitors ADD COLUMN fail_threshold INTEGER NOT NULL DEFAULT 2"
+bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE state ADD COLUMN fails INTEGER NOT NULL DEFAULT 0"
 # v1.0 → v1.1
-wrangler d1 execute nabiz --remote --command "CREATE TABLE notices (id INTEGER PRIMARY KEY, at INTEGER NOT NULL, severity TEXT NOT NULL DEFAULT 'info', body_md TEXT NOT NULL, resolved_at INTEGER)"
+bunx wrangler d1 execute nabiz --remote --command "CREATE TABLE notices (id INTEGER PRIMARY KEY, at INTEGER NOT NULL, severity TEXT NOT NULL DEFAULT 'info', body_md TEXT NOT NULL, resolved_at INTEGER)"
+# v1.1 → v2.0
+bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE notices ADD COLUMN lang TEXT"
 ```
+
+v2.0 is the Astro rebuild: same worker, same schema plus the one column,
+but deploying now runs `astro build` first — `bun run deploy` does both.
 
 ## Limits worth knowing
 
@@ -151,4 +182,4 @@ wrangler d1 execute nabiz --remote --command "CREATE TABLE notices (id INTEGER P
 
 ## License
 
-MIT
+MIT. The icons are [Lucide](https://lucide.dev), ISC.

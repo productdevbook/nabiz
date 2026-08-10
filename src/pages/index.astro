@@ -1,0 +1,316 @@
+---
+import "../styles.css"
+import { env } from "cloudflare:workers"
+import { statusJson } from "../lib/api"
+import { langOf, NAMES, t, type Lang } from "../lib/i18n"
+import { callout, eventLine, pastNotice, serviceRow, when } from "../lib/render"
+import { eventsView, overall, rows } from "../lib/shape"
+import { forPage, notices, recentEvents } from "../lib/store"
+
+const lang = langOf(Astro.url.searchParams.get("lang") ?? env.LANG)
+const title = env.TITLE ?? "nabiz"
+
+const data = await forPage(env.DB, 90)
+const events = await recentEvents(env.DB, 10)
+
+// An agent that asks for JSON gets the JSON, no second request needed.
+const accept = Astro.request.headers.get("accept") ?? ""
+if (accept.includes("application/json") && !accept.includes("text/html"))
+  return statusJson(data, events)
+
+const noticeList = await notices(env.DB, 3, lang)
+
+const list = rows(data)
+const state = overall(list)
+const banner = state === "up" ? "all_up" : state === "down" ? "all_down" : "some_down"
+const bannerClass = state === "up" ? "ok" : state === "down" ? "bad" : "meh"
+const openNotices = noticeList.filter((n) => n.resolved_at === null)
+const pastNotices = noticeList.filter((n) => n.resolved_at !== null)
+const eventItems = eventsView(data.monitors, events)
+const LANGS: Lang[] = ["en", "tr", "de", "es", "fr"]
+
+Astro.response.headers.set("cache-control", "no-store")
+Astro.response.headers.set("x-status", state)
+Astro.response.headers.set(
+  "link",
+  '</llms.txt>; rel="llms-txt", </api/status.json>; rel="alternate"; type="application/json", </feed.xml>; rel="alternate"; type="application/rss+xml"',
+)
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <link rel="alternate" type="application/rss+xml" href="/feed.xml" />
+    <link rel="alternate" type="application/json" href="/api/status.json" />
+    <link rel="llms-txt" type="text/plain" href="/llms.txt" />
+    <script is:inline>
+      // Before first paint, or the page flashes the wrong theme.
+      try {
+        var t = localStorage.getItem("nabiz-theme")
+        if (t) document.documentElement.dataset.theme = t
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <div class="top">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path>
+            <path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"></path>
+          </svg>
+        </span>
+        <h1>{title}</h1>
+      </div>
+      <div class="ctrl">
+        <button id="theme" type="button" aria-label="theme">
+          <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path>
+          </svg>
+          <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
+          </svg>
+        </button>
+        <select id="lang" aria-label="language">
+          {LANGS.map((l) => <option value={l} selected={l === lang}>{NAMES[l]}</option>)}
+        </select>
+      </div>
+    </div>
+
+    <div class:list={["card", "hero", bannerClass]}>
+      <span class:list={["dot", bannerClass]} aria-hidden="true">
+        {
+          bannerClass === "ok" ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 6v7" />
+              <path d="M12 17.5h.01" />
+            </svg>
+          )
+        }
+      </span>
+      <div class="hero-t">
+        <p class="hero-s">{t(lang, banner)}</p>
+        <p class="hero-m">{t(lang, "updated")} · {when(Date.now())}</p>
+      </div>
+      <svg class="ekg" viewBox="0 0 600 44" preserveAspectRatio="none" aria-hidden="true">
+        <path
+          d="M0 26 H236 L246 20 L254 30 L262 26 H298 L306 26 L314 4 L326 42 L336 26 H600"
+          pathLength="1"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linejoin="round"></path>
+      </svg>
+    </div>
+
+    <Fragment set:html={openNotices.map((n) => callout(n, lang)).join("\n")} />
+
+    <section class="panel">
+      <header class="panel-h"><h2>{t(lang, "services")}</h2><a href="/api/status.json" title="status.json"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1M16 3h1a2 2 0 0 1 2 2v5a2 2 0 0 0 2 2 2 2 0 0 0-2 2v5a2 2 0 0 1-2 2h-1"></path></svg></a></header>
+      <div class="well">
+        <Fragment set:html={list.map((r) => serviceRow(r, lang)).join("\n")} />
+      </div>
+    </section>
+
+    {
+      pastNotices.length > 0 && (
+        <>
+          <section class="panel">
+            <header class="panel-h"><h2>{t(lang, "notices")}</h2><a href="/api/notices.json" title="notices.json"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1M16 3h1a2 2 0 0 1 2 2v5a2 2 0 0 0 2 2 2 2 0 0 0-2 2v5a2 2 0 0 1-2 2h-1"></path></svg></a></header>
+            <div class="well stack">
+              <Fragment set:html={pastNotices.map((n) => pastNotice(n, lang)).join("\n")} />
+            </div>
+          </section>
+        </>
+      )
+    }
+
+    {
+      eventItems.length > 0 && (
+        <>
+          <section class="panel">
+            <header class="panel-h"><h2>{t(lang, "recent_events")}</h2><a href="/feed.xml" title="RSS"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1.6" fill="currentColor" stroke="none"></circle></svg></a></header>
+            <ul class="well events">
+              <Fragment set:html={eventItems.map((e) => eventLine(e, lang)).join("\n")} />
+            </ul>
+          </section>
+        </>
+      )
+    }
+
+    <footer class="foot">
+      <div class="foot-grid">
+        <div class="foot-brand">
+          <span class="mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path>
+              <path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"></path>
+            </svg>
+          </span>
+          <div>
+            <strong>{title}</strong>
+            <p>{t(lang, "foot_tag")}</p>
+          </div>
+        </div>
+        <nav class="foot-col" aria-label="API">
+          <h4>API</h4>
+          <a href="/api/status.json">status.json</a>
+          <a href="/api/history.json">history.json</a>
+          <a href="/api/notices.json">notices.json</a>
+          <a href="/badge.svg">badge.svg</a>
+        </nav>
+        <nav class="foot-col" aria-label={t(lang, "foot_follow")}>
+          <h4>{t(lang, "foot_follow")}</h4>
+          <a href="/feed.xml">RSS</a>
+          <a href="/llms.txt">llms.txt</a>
+          <a href="https://github.com/productdevbook/nabiz">GitHub</a>
+        </nav>
+      </div>
+      <div class="foot-base">
+        <span>{t(lang, "updated")} · {when(Date.now())}</span>
+        <a href="#notice" id="pen" title={t(lang, "ed_title")}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9"></path>
+            <path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"></path>
+          </svg>
+        </a>
+      </div>
+    </footer>
+
+    <dialog id="ed">
+      <h3>{t(lang, "ed_title")}</h3>
+      <div class="seg" id="sev">
+        {
+          (["info", "maintenance", "degraded", "outage"] as const).map((v, i) => (
+            <button type="button" data-v={v} class:list={[{ on: i === 0 }, v]}>
+              {t(lang, `sev_${v}`)}
+            </button>
+          ))
+        }
+      </div>
+      <textarea id="txt" rows="6" placeholder={t(lang, "ed_body")}></textarea>
+      <div class="pair">
+        <select id="nlang" aria-label="notice language">
+          <option value="all">{t(lang, "ed_lang_all")}</option>
+          {LANGS.map((l) => <option value={l} selected={l === lang}>{NAMES[l]}</option>)}
+        </select>
+        <input id="tok" type="password" placeholder={t(lang, "ed_token")} autocomplete="off" />
+      </div>
+      <div id="resolvables"></div>
+      <p id="ederr" class="ederr"></p>
+      <footer>
+        <button id="cancel" type="button">{t(lang, "ed_cancel")}</button>
+        <button id="pub" type="button" class="primary">{t(lang, "ed_publish")}</button>
+      </footer>
+    </dialog>
+
+    <script is:inline define:vars={{ resolveLabel: t(lang, "ed_resolve"), failedLabel: t(lang, "ed_failed") }}>
+      var dlg, tok, err
+      var sev = "info"
+      function wire() {
+        dlg = document.getElementById("ed")
+        if (!dlg) return
+        tok = document.getElementById("tok")
+        err = document.getElementById("ederr")
+        tok.value = localStorage.getItem("nabiz-token") || ""
+        document.querySelectorAll("#sev button").forEach(function (b) {
+          b.onclick = function () {
+            document.querySelectorAll("#sev button").forEach(function (x) { x.classList.remove("on") })
+            b.classList.add("on")
+            sev = b.dataset.v
+          }
+        })
+        document.getElementById("pub").onclick = publish
+        document.getElementById("cancel").onclick = function () { dlg.close() }
+        var ls = document.getElementById("lang")
+        if (ls) ls.onchange = function () { location.search = "?lang=" + ls.value }
+        var pen = document.getElementById("pen")
+        if (pen) pen.onclick = function (e) { e.preventDefault(); openEd() }
+        var th = document.getElementById("theme")
+        if (th) th.onclick = toggleTheme
+      }
+      function openEd() {
+        if (dlg.open) return
+        var box = document.getElementById("resolvables")
+        box.replaceChildren()
+        document.querySelectorAll("[data-open]").forEach(function (n) {
+          var b = document.createElement("button")
+          b.type = "button"
+          b.className = "res"
+          b.textContent = resolveLabel + " · #" + n.dataset.notice
+          b.onclick = function () { send("/api/notice/resolve", { id: Number(n.dataset.notice) }) }
+          box.appendChild(b)
+        })
+        dlg.showModal()
+        document.getElementById("txt").focus()
+      }
+      function send(path, body) {
+        err.textContent = ""
+        fetch(path, {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: "Bearer " + tok.value },
+          body: JSON.stringify(body),
+        }).then(function (r) {
+          if (r.ok) { localStorage.setItem("nabiz-token", tok.value); location.href = "/" }
+          else err.textContent = failedLabel
+        })
+      }
+      function publish() {
+        send("/api/notice", {
+          severity: sev,
+          lang: document.getElementById("nlang").value,
+          body: document.getElementById("txt").value,
+        })
+      }
+      addEventListener("keydown", function (e) {
+        var tag = (document.activeElement || {}).tagName
+        if ((e.key === "n" || e.key === "N") && !e.metaKey && !e.ctrlKey && tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") {
+          // Without this the very keystroke that opens the editor types
+          // itself into whichever field lands the focus.
+          e.preventDefault()
+          openEd()
+        }
+      })
+      function toggleTheme() {
+        var dark = document.documentElement.dataset.theme
+          ? document.documentElement.dataset.theme === "dark"
+          : matchMedia("(prefers-color-scheme: dark)").matches
+        var next = dark ? "light" : "dark"
+        var apply = function () { document.documentElement.dataset.theme = next }
+        if (document.startViewTransition) document.startViewTransition(apply)
+        else apply()
+        try { localStorage.setItem("nabiz-theme", next) } catch {}
+      }
+      wire()
+      if (location.hash === "#notice") openEd()
+
+      // The future does not reload: the page refetches itself and morphs,
+      // with a view transition where the browser has one.
+      function refresh() {
+        if (dlg.open) return
+        fetch(location.pathname + location.search, { headers: { "x-refresh": "1" } })
+          .then(function (r) { return r.text() })
+          .then(function (html) {
+            var next = new DOMParser().parseFromString(html, "text/html")
+            var swap = function () {
+              document.body.replaceChildren.apply(document.body, Array.prototype.slice.call(next.body.childNodes))
+              wire()
+            }
+            if (document.startViewTransition) document.startViewTransition(swap)
+            else swap()
+          })
+          .catch(function () {})
+      }
+      setInterval(refresh, 25000)
+      addEventListener("visibilitychange", function () { if (!document.hidden) refresh() })
+    </script>
+  </body>
+</html>

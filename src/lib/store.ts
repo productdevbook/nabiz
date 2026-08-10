@@ -141,7 +141,8 @@ export interface PageData {
   states: Map<number, { ok: boolean; since: number }>
   days: Map<number, DayRow[]>
   latency: Map<number, number>
-  /** Last day of successful-probe latency, averaged into quarter-hours. */
+  /** Last day of successful-probe latency, averaged into hours — 24
+   *  points draw a legible shape where 96 drew noise. */
   spark: Map<number, number[]>
 }
 
@@ -157,7 +158,7 @@ export async function forPage(db: D1Database, window: number): Promise<PageData>
       .bind(Date.now() - 3600 * 1000),
     db
       .prepare(
-        `SELECT monitor_id, at / 900000 AS bucket, CAST(AVG(ms) AS INTEGER) AS ms
+        `SELECT monitor_id, at / 3600000 AS bucket, CAST(AVG(ms) AS INTEGER) AS ms
          FROM checks WHERE ok = 1 AND at > ? GROUP BY monitor_id, bucket ORDER BY bucket`,
       )
       .bind(Date.now() - 24 * 3600 * 1000),
