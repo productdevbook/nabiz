@@ -143,9 +143,11 @@ function editor(lang: Lang): string {
   document.getElementById("cancel").onclick = function () { dlg.close(); };
   addEventListener("keydown", function (e) {
     var tag = (document.activeElement || {}).tagName;
-    if (e.key === "n" && !e.metaKey && !e.ctrlKey && tag !== "INPUT" && tag !== "TEXTAREA") open();
+    if ((e.key === "n" || e.key === "N") && !e.metaKey && !e.ctrlKey && tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") open();
   });
   if (location.hash === "#notice") open();
+  var pen = document.getElementById("pen");
+  if (pen) pen.onclick = function (e) { e.preventDefault(); open(); };
   setInterval(function () { if (!dlg.open) location.reload(); }, 60000);
 })();
 </script>`
@@ -247,6 +249,9 @@ dialog button.primary{background:var(--ok);border-color:var(--ok);color:#fff}
 .ederr{color:var(--bad);font-size:13px;min-height:18px}
 .page-foot{margin-top:28px;color:var(--mut);font-size:12px;display:flex;justify-content:space-between}
 .page-foot a{color:inherit}
+.langs a{text-decoration:none;opacity:.7;text-transform:uppercase;font-size:11px}
+.langs b{text-transform:uppercase;font-size:11px}
+#pen{text-decoration:none;font-size:14px;margin-right:6px}
 </style>
 </head>
 <body>
@@ -255,7 +260,13 @@ dialog button.primary{background:var(--ok);border-color:var(--ok);color:#fff}
 ${noticesSection(noticeList, lang)}
 ${items}
 ${eventsSection(data, events, lang)}
-<div class="page-foot"><span>${t(lang, "updated")}: ${now} UTC</span><a href="https://github.com/productdevbook/nabiz">nabiz</a></div>
+<div class="page-foot"><span>${t(lang, "updated")}: ${now} UTC</span><span class="langs">${(
+    ["en", "tr", "de", "es", "fr"] as Lang[]
+  )
+    .map((l) => (l === lang ? `<b>${l}</b>` : `<a href="?lang=${l}">${l}</a>`))
+    .join(
+      " ",
+    )}</span><span><a href="#notice" id="pen" title="${t(lang, "ed_title")}">✎</a> <a href="https://github.com/productdevbook/nabiz">nabiz</a></span></div>
 ${editor(lang)}
 </body>
 </html>`

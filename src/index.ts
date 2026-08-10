@@ -29,6 +29,8 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
     const title = env.TITLE ?? "nabiz"
+    // A visitor's tongue beats the operator's default, but only for them.
+    const lang = langOf(url.searchParams.get("lang") ?? env.LANG)
 
     // Alive as long as the worker answers — the one endpoint with no D1
     // behind it, so the watchers can watch the watcher.
@@ -64,7 +66,7 @@ export default {
         data,
         await recentEvents(env.DB, 50),
         await notices(env.DB, 10),
-        langOf(env.LANG),
+        lang,
       )
     }
     if (url.pathname === "/badge.svg") return badge(await forPage(env.DB, 90))
@@ -72,7 +74,7 @@ export default {
     if (url.pathname !== "/") return new Response("not found", { status: 404 })
     const data = await forPage(env.DB, 90)
     return new Response(
-      page(data, langOf(env.LANG), title, await recentEvents(env.DB, 10), await notices(env.DB, 3)),
+      page(data, lang, title, await recentEvents(env.DB, 10), await notices(env.DB, 3)),
       {
         headers: {
           "content-type": "text/html; charset=utf-8",
