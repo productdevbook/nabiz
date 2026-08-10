@@ -136,22 +136,23 @@ function footer(lang: Lang, now: string, penTitle: string): string {
 }
 
 function editor(lang: Lang): string {
+  const sevs = ["info", "maintenance", "degraded", "outage"] as const
   return `<dialog id="ed">
   <h3>${t(lang, "ed_title")}</h3>
-  <input id="tok" type="password" placeholder="${t(lang, "ed_token")}" autocomplete="off">
+  <div class="seg" id="sev">${sevs
+    .map(
+      (v, i) =>
+        `<button type="button" data-v="${v}" class="${i === 0 ? "on " : ""}${v}">${sevLabel(v, lang)}</button>`,
+    )
+    .join("")}</div>
+  <textarea id="txt" rows="6" placeholder="${t(lang, "ed_body")}"></textarea>
   <div class="pair">
-  <select id="sev">
-    <option value="info">${t(lang, "sev_info")}</option>
-    <option value="maintenance">${t(lang, "sev_maintenance")}</option>
-    <option value="degraded">${t(lang, "sev_degraded")}</option>
-    <option value="outage">${t(lang, "sev_outage")}</option>
-  </select>
-  <select id="nlang">
-    <option value="all">${t(lang, "ed_lang_all")}</option>
-    ${LANGS.map((l) => `<option value="${l}"${l === lang ? " selected" : ""}>${NAMES[l]}</option>`).join("")}
-  </select>
+    <select id="nlang" aria-label="language">
+      <option value="all">${t(lang, "ed_lang_all")}</option>
+      ${LANGS.map((l) => `<option value="${l}"${l === lang ? " selected" : ""}>${NAMES[l]}</option>`).join("")}
+    </select>
+    <input id="tok" type="password" placeholder="${t(lang, "ed_token")}" autocomplete="off">
   </div>
-  <textarea id="txt" rows="5" placeholder="${t(lang, "ed_body")}"></textarea>
   <div id="resolvables"></div>
   <p id="ederr" class="ederr"></p>
   <footer><button id="cancel" type="button">${t(lang, "ed_cancel")}</button><button id="pub" type="button" class="primary">${t(lang, "ed_publish")}</button></footer>
@@ -161,15 +162,29 @@ function editor(lang: Lang): string {
   var dlg = document.getElementById("ed");
   var tok = document.getElementById("tok");
   var err = document.getElementById("ederr");
+  var sev = "info";
   tok.value = localStorage.getItem("nabiz-token") || "";
-  function open() { if (!dlg.open) { fill(); dlg.showModal(); } }
+  document.querySelectorAll("#sev button").forEach(function (b) {
+    b.onclick = function () {
+      document.querySelectorAll("#sev button").forEach(function (x) { x.classList.remove("on"); });
+      b.classList.add("on");
+      sev = b.dataset.v;
+    };
+  });
+  function open() {
+    if (dlg.open) return;
+    fill();
+    dlg.showModal();
+    document.getElementById("txt").focus();
+  }
   function fill() {
     var box = document.getElementById("resolvables");
     box.replaceChildren();
     document.querySelectorAll("[data-open]").forEach(function (n) {
       var b = document.createElement("button");
       b.type = "button";
-      b.textContent = "${t(lang, "ed_resolve")} #" + n.dataset.notice;
+      b.className = "res";
+      b.textContent = "${t(lang, "ed_resolve")} · #" + n.dataset.notice;
       b.onclick = function () { send("/api/notice/resolve", { id: Number(n.dataset.notice) }); };
       box.appendChild(b);
     });
@@ -187,7 +202,7 @@ function editor(lang: Lang): string {
   }
   document.getElementById("pub").onclick = function () {
     send("/api/notice", {
-      severity: document.getElementById("sev").value,
+      severity: sev,
       lang: document.getElementById("nlang").value,
       body: document.getElementById("txt").value,
     });
@@ -195,7 +210,12 @@ function editor(lang: Lang): string {
   document.getElementById("cancel").onclick = function () { dlg.close(); };
   addEventListener("keydown", function (e) {
     var tag = (document.activeElement || {}).tagName;
-    if ((e.key === "n" || e.key === "N") && !e.metaKey && !e.ctrlKey && tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") open();
+    if ((e.key === "n" || e.key === "N") && !e.metaKey && !e.ctrlKey && tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") {
+      // Without this the very keystroke that opens the editor types itself
+      // into whichever field lands the focus.
+      e.preventDefault();
+      open();
+    }
   });
   var ls = document.getElementById("lang");
   if (ls) ls.onchange = function () { location.search = "?lang=" + ls.value; };
@@ -304,16 +324,28 @@ h1{font-size:19px;font-weight:650;letter-spacing:-.2px}
 .foot-meta{display:flex;justify-content:space-between;gap:10px}
 .foot-meta a{text-decoration:none}
 #pen{margin-right:4px}
-dialog{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:14px;padding:20px;width:min(460px,92vw);box-shadow:var(--shadow)}
-dialog::backdrop{background:rgba(8,10,14,.5)}
-dialog h3{margin-bottom:12px;font-size:15px}
-.pair{display:flex;gap:8px}
-.pair select{flex:1}
-dialog input,dialog select,dialog textarea{width:100%;margin-bottom:8px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--fg);font:inherit;font-size:14px}
-dialog footer{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
-dialog button{padding:8px 15px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer;font:inherit;font-size:14px}
-dialog button.primary{background:var(--ok);border-color:var(--ok);color:#fff}
-#resolvables{display:flex;flex-direction:column;gap:6px;margin-bottom:6px}
+dialog{background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:16px;padding:22px;width:min(480px,92vw);box-shadow:0 12px 40px rgba(8,10,16,.18)}
+dialog::backdrop{background:rgba(8,10,14,.45);backdrop-filter:blur(2px)}
+dialog[open]{animation:pop .18s ease-out}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+dialog h3{margin-bottom:14px;font-size:16px;font-weight:650;letter-spacing:-.2px}
+.seg{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.seg button{flex:1;padding:7px 4px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--mut);cursor:pointer;font:inherit;font-size:12.5px;font-weight:600;white-space:nowrap}
+.seg button.on{color:#fff;border-color:transparent}
+.seg button.on.info,.seg button.on.maintenance{background:#5b7bd5}
+.seg button.on.degraded{background:var(--meh)}
+.seg button.on.outage{background:var(--bad)}
+dialog textarea{width:100%;margin-bottom:10px;padding:11px 12px;border:1px solid var(--line);border-radius:11px;background:var(--bg);color:var(--fg);font:13.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical}
+.pair{display:flex;gap:8px;margin-bottom:6px}
+.pair select,.pair input{flex:1;min-width:0;padding:9px 11px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--fg);font:inherit;font-size:13.5px}
+dialog textarea:focus,.pair select:focus,.pair input:focus{outline:2px solid #5b7bd5;outline-offset:-1px;border-color:transparent}
+dialog footer{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
+dialog footer button{padding:9px 18px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer;font:inherit;font-size:14px;font-weight:550}
+dialog footer button.primary{background:var(--ok);border-color:var(--ok);color:#fff}
+dialog footer button.primary:hover{filter:brightness(1.06)}
+#resolvables{display:flex;flex-direction:column;gap:6px;margin-bottom:4px}
+#resolvables .res{padding:8px 12px;border-radius:10px;border:1px dashed var(--line);background:transparent;color:var(--mut);cursor:pointer;font:inherit;font-size:13px;text-align:left}
+#resolvables .res:hover{color:var(--fg);border-style:solid}
 .ederr{color:var(--bad);font-size:13px;min-height:18px}
 </style>
 </head>
