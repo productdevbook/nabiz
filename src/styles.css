@@ -53,6 +53,30 @@
       radial-gradient(760px 520px at 108% 24%, rgb(91 123 213 / 0.09), transparent 64%),
       radial-gradient(520px 380px at 92% 96%, rgb(26 158 108 / 0.06), transparent 60%);
   }
+  /* The laser: a hair-thin line on the page's right edge, gliding down and
+   * back up — the pulse of the thing, made visible. Stilled for readers
+   * who asked their system for less motion. */
+  body::after {
+    content: "";
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 2px;
+    height: 34vh;
+    z-index: 0;
+    pointer-events: none;
+    background: linear-gradient(to bottom, transparent, var(--color-ok) 30% 70%, transparent);
+    filter: drop-shadow(0 0 6px rgb(26 158 108 / 0.75));
+    opacity: 0.65;
+    animation: laser 6.5s ease-in-out infinite alternate;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body::after {
+      animation: none;
+      opacity: 0.2;
+      top: 33vh;
+    }
+  }
   @media (prefers-color-scheme: dark) {
     body::before {
       background:
@@ -337,5 +361,13 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+@keyframes laser {
+  from {
+    transform: translateY(-34vh);
+  }
+  to {
+    transform: translateY(100vh);
   }
 }
