@@ -202,27 +202,39 @@ export interface Notice {
   severity: string
   body_md: string
   resolved_at: number | null
+  /** Which audience this speaks to; null speaks to all of them. */
+  lang: string | null
 }
 
 /** Open notices first, newest first; the resolved tail is capped so the
  *  page tells the story without becoming the archive. */
-export async function notices(db: D1Database, resolvedLimit: number): Promise<Notice[]> {
+export async function notices(
+  db: D1Database,
+  resolvedLimit: number,
+  lang: string | null = null,
+): Promise<Notice[]> {
   const { results } = await db
     .prepare(
       `SELECT * FROM notices
-       WHERE resolved_at IS NULL
-          OR id IN (SELECT id FROM notices WHERE resolved_at IS NOT NULL ORDER BY at DESC LIMIT ?)
+       WHERE (?1 IS NULL OR lang IS NULL OR lang = ?1)
+         AND (resolved_at IS NULL
+          OR id IN (SELECT id FROM notices WHERE resolved_at IS NOT NULL ORDER BY at DESC LIMIT ?2))
        ORDER BY (resolved_at IS NULL) DESC, at DESC`,
     )
-    .bind(resolvedLimit)
+    .bind(lang, resolvedLimit)
     .all<Notice>()
   return results
 }
 
-export async function addNotice(db: D1Database, severity: string, body: string): Promise<number> {
+export async function addNotice(
+  db: D1Database,
+  severity: string,
+  body: string,
+  lang: string | null,
+): Promise<number> {
   const row = await db
-    .prepare("INSERT INTO notices (at, severity, body_md) VALUES (?, ?, ?) RETURNING id")
-    .bind(Date.now(), severity, body)
+    .prepare("INSERT INTO notices (at, severity, body_md, lang) VALUES (?, ?, ?, ?) RETURNING id")
+    .bind(Date.now(), severity, body, lang)
     .first<{ id: number }>()
   if (row === null) throw new Error("the insert returned nothing, which D1 does not do")
   return row.id

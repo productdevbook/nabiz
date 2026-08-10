@@ -28,6 +28,7 @@ const strings = {
     ed_resolve: "Resolve",
     ed_cancel: "Cancel",
     ed_failed: "The token was refused.",
+    ed_lang_all: "every language",
   },
   tr: {
     all_up: "Tüm sistemler çalışıyor",
@@ -56,6 +57,7 @@ const strings = {
     ed_resolve: "Çözüldü işaretle",
     ed_cancel: "Vazgeç",
     ed_failed: "Anahtar kabul edilmedi.",
+    ed_lang_all: "tüm diller",
   },
   de: {
     all_up: "Alle Systeme funktionieren",
@@ -84,6 +86,7 @@ const strings = {
     ed_resolve: "Als behoben markieren",
     ed_cancel: "Abbrechen",
     ed_failed: "Token wurde abgelehnt.",
+    ed_lang_all: "alle Sprachen",
   },
   es: {
     all_up: "Todos los sistemas funcionan",
@@ -112,6 +115,7 @@ const strings = {
     ed_resolve: "Marcar como resuelto",
     ed_cancel: "Cancelar",
     ed_failed: "El token fue rechazado.",
+    ed_lang_all: "todos los idiomas",
   },
   fr: {
     all_up: "Tous les systèmes fonctionnent",
@@ -140,6 +144,7 @@ const strings = {
     ed_resolve: "Marquer comme résolu",
     ed_cancel: "Annuler",
     ed_failed: "Le jeton a été refusé.",
+    ed_lang_all: "toutes les langues",
   },
 } as const
 
@@ -150,6 +155,18 @@ export function t(lang: Lang, key: Key): string {
 }
 
 const known: ReadonlySet<string> = new Set(["en", "tr", "de", "es", "fr"])
+
+export function isLang(value: string): value is Lang {
+  return known.has(value)
+}
+
+export const NAMES: Record<Lang, string> = {
+  en: "English",
+  tr: "Türkçe",
+  de: "Deutsch",
+  es: "Español",
+  fr: "Français",
+}
 
 export function langOf(value: string | undefined): Lang {
   return value !== undefined && known.has(value) ? (value as Lang) : "en"

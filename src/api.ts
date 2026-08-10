@@ -1,5 +1,5 @@
 import type { Lang } from "./i18n"
-import { t } from "./i18n"
+import { isLang, t } from "./i18n"
 import { render } from "./markdown"
 import type { Overall } from "./shape"
 import { eventsView, overall, rows, uptimeOf } from "./shape"
@@ -151,8 +151,15 @@ served here but named elsewhere; they are counted, never listed.
 - ${origin}/api/notices.json operator-written notices, markdown and rendered
 - ${origin}/health           204 when the status page itself is alive
 
+Every read endpoint takes ?lang= (en, tr, de, es, fr): the page and the
+feed translate their words, and notices written for one language are
+served only to it — a notice with no language speaks to everyone.
+
 All JSON is read-only, CORS-open, and uncached: what you get is what is
-true at the moment you asked.
+true at the moment you asked. Writing exists too, for the operator:
+POST /api/notice with Authorization: Bearer <token> and a JSON body of
+{"body": "markdown", "severity": "info|maintenance|degraded|outage",
+"lang": "all|en|tr|de|es|fr"}; POST /api/notice/resolve with {"id": n}.
 
 ## Reading status.json
 
@@ -189,12 +196,20 @@ export async function postNotice(request: Request, db: D1Database): Promise<Resp
   }
   const severity = typeof body.severity === "string" ? body.severity : "info"
   const text = typeof body.body === "string" ? body.body.trim() : ""
+  const langRaw = (body as { lang?: unknown }).lang
+  const lang =
+    langRaw === undefined || langRaw === null || langRaw === "all"
+      ? null
+      : typeof langRaw === "string" && isLang(langRaw)
+        ? langRaw
+        : false
+  if (lang === false) return json({ error: "unknown lang" }, 400)
   if (!SEVERITIES.has(severity)) return json({ error: "unknown severity" }, 400)
   if (text.length === 0 || text.length > 4000)
     return json({ error: "the notice must be 1 to 4000 characters" }, 400)
 
   const { addNotice } = await import("./store")
-  const id = await addNotice(db, severity, text)
+  const id = await addNotice(db, severity, text, lang)
   return json({ id }, 201)
 }
 
@@ -217,6 +232,7 @@ export function noticesJson(list: Notice[]): Response {
       id: n.id,
       at: new Date(n.at).toISOString(),
       severity: n.severity,
+      lang: n.lang,
       body_md: n.body_md,
       body_html: render(n.body_md),
       resolved_at: n.resolved_at === null ? null : new Date(n.resolved_at).toISOString(),

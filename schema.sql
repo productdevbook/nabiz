@@ -70,5 +70,7 @@ CREATE TABLE IF NOT EXISTS notices (
   at INTEGER NOT NULL,
   severity TEXT NOT NULL DEFAULT 'info',
   body_md TEXT NOT NULL,
-  resolved_at INTEGER
+  resolved_at INTEGER,
+  -- Which audience this speaks to; empty speaks to all of them.
+  lang TEXT
 );

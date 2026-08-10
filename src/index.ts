@@ -51,7 +51,8 @@ export default {
         ? postNotice(request, env.DB)
         : postResolve(request, env.DB)
     }
-    if (url.pathname === "/api/notices.json") return noticesJson(await notices(env.DB, 10))
+    if (url.pathname === "/api/notices.json")
+      return noticesJson(await notices(env.DB, 10, url.searchParams.has("lang") ? lang : null))
 
     if (url.pathname === "/api/status.json") {
       const data = await forPage(env.DB, 90)
@@ -65,7 +66,7 @@ export default {
         title,
         data,
         await recentEvents(env.DB, 50),
-        await notices(env.DB, 10),
+        await notices(env.DB, 10, lang),
         lang,
       )
     }
@@ -74,7 +75,7 @@ export default {
     if (url.pathname !== "/") return new Response("not found", { status: 404 })
     const data = await forPage(env.DB, 90)
     return new Response(
-      page(data, lang, title, await recentEvents(env.DB, 10), await notices(env.DB, 3)),
+      page(data, lang, title, await recentEvents(env.DB, 10), await notices(env.DB, 3, lang)),
       {
         headers: {
           "content-type": "text/html; charset=utf-8",
