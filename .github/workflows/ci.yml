@@ -20,3 +20,5 @@ jobs:
       - run: bunx oxlint --deny-warnings
       - run: bunx oxfmt --check src test
       - run: bun test
+      # The committed stylesheet must be what the source compiles to.
+      - run: bun run css && git diff --exit-code src/styles.built.css

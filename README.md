@@ -64,6 +64,11 @@ wrangler d1 execute nabiz --remote --file schema.sql
 wrangler deploy
 ```
 
+The stylesheet is Tailwind, compiled ahead of time and committed
+(`src/styles.built.css`), so deploying needs no build step. Touch
+`src/styles.css` and run `bun run css`; CI refuses a commit where the
+two disagree.
+
 Then tell it what to watch — monitors are rows, not config, because this
 repository is public and your hostnames are yours:
 

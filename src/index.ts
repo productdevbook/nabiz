@@ -15,6 +15,9 @@ import { page } from "./page"
 import { probe } from "./probe"
 import { forPage, monitors, notices, prune, recentEvents, record } from "./store"
 
+// The compiled stylesheet, committed and carried as text — see styles.css.
+import css from "./styles.built.css"
+
 export interface Env {
   DB: D1Database
   LANG?: string
@@ -75,7 +78,7 @@ export default {
     if (url.pathname !== "/") return new Response("not found", { status: 404 })
     const data = await forPage(env.DB, 90)
     return new Response(
-      page(data, lang, title, await recentEvents(env.DB, 10), await notices(env.DB, 3, lang)),
+      page(data, lang, title, await recentEvents(env.DB, 10), await notices(env.DB, 3, lang), css),
       {
         headers: {
           "content-type": "text/html; charset=utf-8",

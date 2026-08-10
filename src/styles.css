@@ -1,0 +1,320 @@
+/* The page's design system, compiled by Tailwind's CLI into
+ * styles.built.css — which is committed, so deploying needs no build step:
+ * `bun run css` after touching this file is the whole pipeline. */
+@import "tailwindcss";
+
+@theme {
+  --color-ok: #1a9e6c;
+  --color-meh: #dd9a2b;
+  --color-bad: #d64545;
+  --color-info: #5b7bd5;
+  --color-bg: #f6f7f9;
+  --color-card: #ffffff;
+  --color-fg: #191b1f;
+  --color-mut: #697077;
+  --color-line: #e6e8ec;
+  --color-none: #dcdfe4;
+}
+
+/* One dark theme, driven by the reader's system — the tokens flip, the
+ * components never have to know. */
+@layer base {
+  :root {
+    --shadow-soft: 0 1px 2px rgba(16, 20, 28, 0.05), 0 4px 16px rgba(16, 20, 28, 0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-bg: #0e0f12;
+      --color-card: #17181d;
+      --color-fg: #eceef1;
+      --color-mut: #9aa1a9;
+      --color-line: #25272e;
+      --color-none: #2e3138;
+      --shadow-soft: none;
+    }
+  }
+  body {
+    @apply bg-bg text-fg mx-auto max-w-[720px] px-5 pt-7 pb-14 text-[15px] leading-[1.55];
+    font-family:
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      sans-serif;
+  }
+  a {
+    color: inherit;
+  }
+}
+
+@layer components {
+  .top {
+    @apply mb-[22px] flex items-center justify-between gap-3;
+  }
+  .top h1 {
+    @apply text-[19px] font-[650] tracking-[-0.2px];
+  }
+  #lang {
+    @apply border-line bg-card text-fg rounded-[9px] border px-2.5 py-1.5 text-[13px];
+    box-shadow: var(--shadow-soft);
+  }
+  .card {
+    @apply bg-card border-line rounded-[14px] border;
+    box-shadow: var(--shadow-soft);
+  }
+  .banner {
+    @apply mb-[26px] flex items-center gap-3 px-5 py-[18px] text-[16px] font-[650];
+  }
+  .banner.meh {
+    border-color: rgb(221 154 43 / 0.5);
+  }
+  .banner.bad {
+    border-color: rgb(214 69 69 / 0.5);
+  }
+  .dot {
+    @apply bg-none relative size-[9px] flex-none rounded-full;
+  }
+  .dot.ok {
+    @apply bg-ok;
+  }
+  .dot.bad {
+    @apply bg-bad;
+  }
+  .banner .dot {
+    @apply size-[11px];
+  }
+  .banner .dot.ok::after {
+    content: "";
+    @apply border-ok absolute -inset-[5px] rounded-full border-2 opacity-35;
+    animation: ring 2.4s ease-out infinite;
+  }
+  .callout {
+    @apply border-line border-l-mut bg-card mb-3.5 rounded-[14px] border border-l-4 px-[18px] py-3.5;
+    box-shadow: var(--shadow-soft);
+  }
+  .callout.info,
+  .callout.maintenance {
+    @apply border-l-info;
+  }
+  .callout.degraded {
+    @apply border-l-meh;
+  }
+  .callout.outage {
+    @apply border-l-bad;
+  }
+  .callout header,
+  .past header {
+    @apply mb-[7px] flex items-center justify-between gap-2;
+  }
+  .callout time,
+  .past time,
+  .events time {
+    @apply text-mut text-xs tabular-nums;
+  }
+  .chip {
+    @apply bg-mut rounded-full px-[9px] py-[3px] text-[10.5px] font-[750] tracking-[0.5px] text-white uppercase;
+  }
+  .chip.outage {
+    @apply bg-bad;
+  }
+  .chip.degraded {
+    @apply bg-meh;
+  }
+  .chip.info,
+  .chip.maintenance {
+    @apply bg-info;
+  }
+  .chip.done {
+    @apply bg-ok;
+  }
+  .md {
+    @apply text-sm;
+  }
+  .md p {
+    @apply my-[3px];
+  }
+  .md code {
+    @apply bg-bg border-line rounded-[5px] border px-[5px] text-[13px];
+  }
+  .md ul {
+    @apply mt-[5px] mb-[3px] ml-[19px] list-disc;
+  }
+  .md a {
+    @apply text-info no-underline hover:underline;
+  }
+  .sect {
+    @apply text-mut mt-[26px] mb-2.5 text-[13px] font-[650] tracking-[0.6px] uppercase;
+  }
+  .svc {
+    @apply px-5 pt-[15px] pb-[13px];
+  }
+  .svc + .svc {
+    @apply border-line border-t;
+  }
+  .svc header {
+    @apply flex items-center gap-2.5;
+  }
+  .svc h3 {
+    @apply flex-1 text-[14.5px] font-semibold;
+  }
+  .num {
+    @apply text-mut text-[13px] tabular-nums;
+  }
+  .spark {
+    @apply text-ok mr-0.5 opacity-65;
+  }
+  .bars {
+    @apply mt-2.5 mb-[7px] flex gap-0.5;
+  }
+  .bars i {
+    @apply bg-none h-6 flex-1 rounded-[2.5px];
+  }
+  .bars i.ok {
+    @apply bg-ok;
+  }
+  .bars i.meh {
+    @apply bg-meh;
+  }
+  .bars i.bad {
+    @apply bg-bad;
+  }
+  .svc footer {
+    @apply text-mut flex justify-between text-xs;
+  }
+  .stack .past {
+    @apply px-5 py-[13px];
+  }
+  .stack .past + .past {
+    @apply border-line border-t;
+  }
+  .past {
+    @apply opacity-75;
+  }
+  .events {
+    @apply list-none px-5 py-[5px];
+  }
+  .events li {
+    @apply flex items-center gap-2.5 py-[9px] text-[13.5px];
+  }
+  .events li + li {
+    @apply border-line border-t;
+  }
+  .events b {
+    @apply font-semibold;
+  }
+  .events .what {
+    @apply text-mut flex-1;
+  }
+  .foot {
+    @apply text-mut mt-[34px] text-[12.5px];
+  }
+  .foot-links {
+    @apply mb-2 flex flex-wrap items-center gap-2;
+  }
+  .foot-links a {
+    @apply no-underline opacity-85 hover:underline hover:opacity-100;
+  }
+  .foot-links s {
+    @apply no-underline opacity-40;
+  }
+  .foot-meta {
+    @apply flex justify-between gap-2.5;
+  }
+  .foot-meta a {
+    @apply no-underline;
+  }
+  #pen {
+    @apply mr-1;
+  }
+
+  dialog {
+    @apply bg-card text-fg border-line m-auto w-[min(480px,92vw)] rounded-2xl border p-[22px];
+    box-shadow: 0 12px 40px rgba(8, 10, 16, 0.18);
+  }
+  dialog::backdrop {
+    background: rgba(8, 10, 14, 0.45);
+    backdrop-filter: blur(2px);
+  }
+  dialog[open] {
+    animation: pop 0.18s ease-out;
+  }
+  dialog h3 {
+    @apply mb-3.5 text-[16px] font-[650] tracking-[-0.2px];
+  }
+  .seg {
+    @apply mb-2.5 flex flex-wrap gap-1.5;
+  }
+  .seg button {
+    @apply border-line bg-bg text-mut flex-1 cursor-pointer rounded-[9px] border px-1 py-[7px] text-[12.5px] font-semibold whitespace-nowrap;
+  }
+  .seg button.on {
+    @apply border-transparent text-white;
+  }
+  .seg button.on.info,
+  .seg button.on.maintenance {
+    @apply bg-info;
+  }
+  .seg button.on.degraded {
+    @apply bg-meh;
+  }
+  .seg button.on.outage {
+    @apply bg-bad;
+  }
+  dialog textarea {
+    @apply border-line bg-bg text-fg mb-2.5 w-full resize-y rounded-[11px] border px-3 py-[11px] text-[13.5px] leading-normal;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .pair {
+    @apply mb-1.5 flex gap-2;
+  }
+  .pair select,
+  .pair input {
+    @apply border-line bg-bg text-fg min-w-0 flex-1 rounded-[10px] border px-[11px] py-[9px] text-[13.5px];
+  }
+  dialog textarea:focus,
+  .pair select:focus,
+  .pair input:focus {
+    @apply outline-info border-transparent outline-2 -outline-offset-1;
+  }
+  dialog footer {
+    @apply mt-2 flex justify-end gap-2;
+  }
+  dialog footer button {
+    @apply border-line bg-bg text-fg cursor-pointer rounded-[10px] border px-[18px] py-[9px] text-sm font-[550];
+  }
+  dialog footer button.primary {
+    @apply bg-ok border-ok text-white hover:brightness-[1.06];
+  }
+  #resolvables {
+    @apply mb-1 flex flex-col gap-1.5;
+  }
+  #resolvables .res {
+    @apply border-line text-mut hover:text-fg cursor-pointer rounded-[10px] border border-dashed bg-transparent px-3 py-2 text-left text-[13px] hover:border-solid;
+  }
+  .ederr {
+    @apply text-bad min-h-[18px] text-[13px];
+  }
+}
+
+@keyframes ring {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.5;
+  }
+  80% {
+    transform: scale(1.15);
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
