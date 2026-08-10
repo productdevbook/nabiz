@@ -19,7 +19,7 @@ export default {
     if (url.pathname !== "/") return new Response("not found", { status: 404 })
 
     const data = await forPage(env.DB, 90)
-    return new Response(page(data, langOf(env.LANG), env.TITLE ?? "nabız"), {
+    return new Response(page(data, langOf(env.LANG), env.TITLE ?? "nabiz"), {
       headers: {
         "content-type": "text/html; charset=utf-8",
         // A status page that caches is a status page that lies.

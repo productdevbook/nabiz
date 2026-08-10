@@ -1,6 +1,10 @@
-# nabız
+<p align="center">
+  <img src="docs/cover.svg" alt="nabiz — a status page that keeps beating when your server does not" width="100%">
+</p>
 
-*Turkish for "pulse" — as in keeping a finger on one.*
+# nabiz
+
+*From the Turkish **nabız** — "pulse", as in keeping a finger on one. Spelled `nabiz` everywhere, because the dotless ı deserves better than being typed wrong.*
 
 A status page that keeps beating when your server does not. One Cloudflare
 Worker probes your endpoints every minute from Cloudflare's edge, keeps the

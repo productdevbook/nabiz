@@ -68,6 +68,12 @@ function rows(data: PageData): Row[] {
   return out
 }
 
+// Turkish writes %50, English writes 50% — the sign follows the language.
+function percent(pct: number, lang: Lang): string {
+  const n = pct.toFixed(pct === 100 ? 0 : 2)
+  return lang === "tr" ? `%${n}` : `${n}%`
+}
+
 function bars(days: DayRow[], lang: Lang): string {
   const byDay = new Map(days.map((d) => [d.day, d]))
   const cells: string[] = []
@@ -80,12 +86,12 @@ function bars(days: DayRow[], lang: Lang): string {
     }
     const pct = (100 * d.ok) / d.total
     const cls = pct >= 99.9 ? "ok" : pct >= 95 ? "meh" : "bad"
-    cells.push(`<i class="${cls}" title="${day} · %${pct.toFixed(pct === 100 ? 0 : 2)}"></i>`)
+    cells.push(`<i class="${cls}" title="${day} · ${percent(pct, lang)}"></i>`)
   }
   return cells.join("")
 }
 
-function uptime(days: DayRow[]): string | null {
+function uptime(days: DayRow[], lang: Lang): string | null {
   let total = 0
   let ok = 0
   for (const d of days) {
@@ -93,8 +99,7 @@ function uptime(days: DayRow[]): string | null {
     ok += d.ok
   }
   if (total === 0) return null
-  const pct = (100 * ok) / total
-  return `%${pct.toFixed(pct === 100 ? 0 : 2)}`
+  return percent((100 * ok) / total, lang)
 }
 
 export function page(data: PageData, lang: Lang, title: string): string {
@@ -115,7 +120,7 @@ export function page(data: PageData, lang: Lang, title: string): string {
           : r.latency !== null
             ? `<span class="ms">${r.latency} ms</span>`
             : ""
-      const pct = uptime(r.days)
+      const pct = uptime(r.days, lang)
       return `<section>
   <header><span class="dot ${dot}"></span><h2>${esc(r.name)}</h2>${side}</header>
   <div class="bars">${bars(r.days, lang)}</div>
@@ -157,7 +162,7 @@ section footer{display:flex;justify-content:space-between;color:var(--mut);font-
 <h1>${esc(title)}</h1>
 <div class="banner ${bannerClass}"><span class="dot ${bannerClass === "ok" ? "ok" : "bad"}"></span>${t(lang, banner)}</div>
 ${items}
-<div class="page-foot"><span>${t(lang, "updated")}: ${now} UTC</span><a href="https://github.com/productdevbook/nabiz">nabız</a></div>
+<div class="page-foot"><span>${t(lang, "updated")}: ${now} UTC</span><a href="https://github.com/productdevbook/nabiz">nabiz</a></div>
 </body>
 </html>`
 }

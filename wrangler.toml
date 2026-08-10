@@ -17,7 +17,7 @@ database_id = "REPLACE_WITH_YOUR_D1_ID"
 [vars]
 # "en" or "tr"
 LANG = "en"
-TITLE = "status"
+TITLE = "nabiz"
 
 # Optional, as secrets (`wrangler secret put …`):
 #   TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID — a message on every state change
