@@ -12,6 +12,9 @@ CREATE TABLE IF NOT EXISTS monitors (
   -- When set, a 200 with the wrong words in it is still a failure — a
   -- database error page and a healthy page can share a status code.
   expect_body TEXT,
+  -- How many probes in a row must fail before the monitor is called down.
+  -- One network blip in a minute-long window is weather, not an outage.
+  fail_threshold INTEGER NOT NULL DEFAULT 2,
   group_name TEXT,
   -- Grouped monitors are shown only as their group's tally ("6/6 up"),
   -- never by name. For the sites you host but do not own.
@@ -47,7 +50,8 @@ CREATE TABLE IF NOT EXISTS days (
 CREATE TABLE IF NOT EXISTS state (
   monitor_id INTEGER PRIMARY KEY,
   ok INTEGER NOT NULL,
-  since INTEGER NOT NULL
+  since INTEGER NOT NULL,
+  fails INTEGER NOT NULL DEFAULT 0
 );
 
 -- Every change of state, kept so the page can say not only how things are

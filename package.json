@@ -2,7 +2,7 @@
   "name": "nabiz",
   "version": "0.1.0",
   "private": true,
-  "description": "A status page that keeps beating when your server does not — Cloudflare Worker + cron + D1.",
+  "description": "A status page that keeps beating when your server does not \u2014 Cloudflare Worker + cron + D1.",
   "license": "MIT",
   "scripts": {
     "dev": "wrangler dev",
@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "oxlint",
     "fmt": "oxfmt",
-    "check": "bun run typecheck && bun run lint && oxfmt --check src"
+    "check": "bun run typecheck && bun run lint && oxfmt --check src",
+    "test": "bun test"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260810.1",

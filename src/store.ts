@@ -49,41 +49,66 @@ export async function record(db: D1Database, results: ProbeResult[]): Promise<St
   await db.batch(writes)
 
   const { results: states } = await db
-    .prepare("SELECT monitor_id, ok, since FROM state")
-    .all<{ monitor_id: number; ok: number; since: number }>()
+    .prepare("SELECT monitor_id, ok, since, fails FROM state")
+    .all<{ monitor_id: number; ok: number; since: number; fails: number }>()
   const known = new Map(states.map((s) => [s.monitor_id, s]))
 
   const changes: StateChange[] = []
   const stateWrites: D1PreparedStatement[] = []
+  const put = (id: number, ok: boolean, since: number, fails: number) =>
+    stateWrites.push(
+      db
+        .prepare(
+          `INSERT INTO state (monitor_id, ok, since, fails) VALUES (?, ?, ?, ?)
+           ON CONFLICT (monitor_id)
+           DO UPDATE SET ok = excluded.ok, since = excluded.since, fails = excluded.fails`,
+        )
+        .bind(id, ok ? 1 : 0, since, fails),
+    )
+  const event = (id: number, ok: boolean) =>
+    stateWrites.push(
+      db
+        .prepare("INSERT INTO events (monitor_id, at, ok) VALUES (?, ?, ?)")
+        .bind(id, now, ok ? 1 : 0),
+    )
+
   for (const r of results) {
     const was = known.get(r.monitor.id)
-    if (was === undefined || Boolean(was.ok) !== r.ok) {
-      // A monitor's very first probe is a state too, but "it exists and it
-      // is up" is not news anybody needs at three in the morning.
-      if (was !== undefined) {
+
+    // The very first sighting is a state, not an event — "it exists and it
+    // is up" is not news anybody needs at three in the morning.
+    if (was === undefined) {
+      put(r.monitor.id, r.ok, now, r.ok ? 0 : 1)
+      continue
+    }
+
+    if (r.ok) {
+      if (!was.ok) {
         changes.push({
           monitor: r.monitor,
-          ok: r.ok,
+          ok: true,
           heldFor: Math.round((now - was.since) / 1000),
         })
+        event(r.monitor.id, true)
+        put(r.monitor.id, true, now, 0)
+      } else if (was.fails > 0) {
+        put(r.monitor.id, true, was.since, 0)
       }
-      stateWrites.push(
-        db
-          .prepare(
-            `INSERT INTO state (monitor_id, ok, since) VALUES (?, ?, ?)
-             ON CONFLICT (monitor_id) DO UPDATE SET ok = excluded.ok, since = excluded.since`,
-          )
-          .bind(r.monitor.id, r.ok ? 1 : 0, now),
-      )
-      // The very first sighting is a state, not an event.
-      if (was !== undefined)
-        stateWrites.push(
-          db
-            .prepare("INSERT INTO events (monitor_id, at, ok) VALUES (?, ?, ?)")
-            .bind(r.monitor.id, now, r.ok ? 1 : 0),
-        )
+      continue
+    }
+
+    // One blip in a minute-long window is weather; the monitor is not
+    // called down until fail_threshold probes in a row have said so.
+    const fails = was.fails + 1
+    if (was.ok && fails >= r.monitor.fail_threshold) {
+      changes.push({ monitor: r.monitor, ok: false, heldFor: Math.round((now - was.since) / 1000) })
+      event(r.monitor.id, false)
+      put(r.monitor.id, false, now, fails)
+    } else {
+      put(r.monitor.id, Boolean(was.ok), was.since, fails)
     }
   }
+
   if (stateWrites.length > 0) await db.batch(stateWrites)
   return changes
 }

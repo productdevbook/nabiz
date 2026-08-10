@@ -7,6 +7,7 @@ export interface Monitor {
   expect_status: number
   timeout_ms: number
   expect_body: string | null
+  fail_threshold: number
   group_name: string | null
   grouped: number
   enabled: number
