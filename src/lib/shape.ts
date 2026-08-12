@@ -22,17 +22,36 @@ export interface Row {
  *  three of five is the machine's, and the page should say which. */
 export const GROUP_OUTAGE = 0.5
 
-function mergeDays(lists: DayRow[][]): DayRow[] {
-  const byDay = new Map<string, DayRow>()
+/** A group's day, as the group experienced it: the median member's.
+ *
+ *  Adding the members up would let one site's bad afternoon drag the whole
+ *  group's history down — five sites, one down for two hours, and the row
+ *  reports a fifth of that outage as if everyone had suffered it. The
+ *  median moves only when half the group does, which is the same line the
+ *  group's state is drawn at. */
+function medianDays(lists: DayRow[][]): DayRow[] {
+  const byDay = new Map<string, { ok: number; total: number }[]>()
   for (const list of lists)
     for (const d of list) {
-      const m = byDay.get(d.day) ?? { monitor_id: 0, day: d.day, total: 0, ok: 0, ms_sum: 0 }
-      m.total += d.total
-      m.ok += d.ok
-      m.ms_sum += d.ms_sum
-      byDay.set(d.day, m)
+      if (d.total === 0) continue
+      const seen = byDay.get(d.day) ?? []
+      seen.push({ ok: d.ok, total: d.total })
+      byDay.set(d.day, seen)
     }
-  return [...byDay.values()].toSorted((a, b) => (a.day < b.day ? -1 : 1))
+
+  const out: DayRow[] = []
+  for (const [day, members] of byDay) {
+    const shares = members.map((m) => m.ok / m.total).toSorted((a, b) => a - b)
+    const middle =
+      shares.length % 2 === 1
+        ? (shares[(shares.length - 1) / 2] as number)
+        : ((shares[shares.length / 2 - 1] as number) + (shares[shares.length / 2] as number)) / 2
+    // Kept on one scale — a thousand imagined checks — so the bars and the
+    // percentage read exactly as they do for a single monitor.
+    const total = 1000
+    out.push({ monitor_id: 0, day, total, ok: Math.round(middle * total), ms_sum: 0 })
+  }
+  return out.toSorted((a, b) => (a.day < b.day ? -1 : 1))
 }
 
 export function rows(data: PageData): Row[] {
@@ -67,7 +86,7 @@ export function rows(data: PageData): Row[] {
       // machine's problem rather than one site's.
       ok: known === 0 ? null : downs === 0,
       partial: known > 0 && downs > 0 && downs / known < GROUP_OUTAGE,
-      days: mergeDays(members.map((m) => data.days.get(m.id) ?? [])),
+      days: medianDays(members.map((m) => data.days.get(m.id) ?? [])),
       latency: null,
       spark: null,
     })
@@ -79,12 +98,13 @@ export type Overall = "up" | "degraded" | "down"
 
 export function overall(list: Row[]): Overall {
   const known = list.filter((r) => r.ok !== null)
-  const troubled = known.filter((r) => r.ok === false)
+  // A group that is partly up says so in its own row and nowhere else.
+  // The banner speaks for everyone reading the page: one customer's own
+  // certificate or DNS being wrong is not news the other customers need,
+  // and a page that cries outage over it teaches them to ignore it.
+  const troubled = known.filter((r) => r.ok === false && !r.partial)
   if (known.length === 0 || troubled.length === 0) return "up"
-  // A group that is partly up is trouble, never a total outage: everything
-  // being down is the one claim this page must not make lightly.
-  const total = troubled.every((r) => !r.partial) && troubled.length === known.length
-  return total ? "down" : "degraded"
+  return troubled.length === known.length ? "down" : "degraded"
 }
 
 export function uptimeOf(days: DayRow[]): number | null {

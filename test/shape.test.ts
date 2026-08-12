@@ -65,6 +65,51 @@ describe("grouped monitors are counted, never listed", () => {
 })
 
 describe("one customer's site is not every customer's site", () => {
+  test("one member's bad day does not become the group's history", () => {
+    const day = (id: number, ok: number, total: number) => ({
+      monitor_id: id,
+      day: "2026-08-12",
+      total,
+      ok,
+      ms_sum: 0,
+    })
+    const members: Monitor[] = [1, 2, 3, 4, 5].map(
+      (id) =>
+        ({
+          id,
+          slug: `s${id}`,
+          name: `site ${id}`,
+          url: "https://example.test/",
+          method: "GET",
+          expect_status: 200,
+          timeout_ms: 1000,
+          expect_body: null,
+          fail_threshold: 2,
+          group_name: "Hosted sites",
+          grouped: 1,
+          enabled: 1,
+          position: id,
+        }) as unknown as Monitor,
+    )
+    const days = new Map([
+      // Four perfect days and one site down half the day.
+      [1, [day(1, 1440, 1440)]],
+      [2, [day(2, 1440, 1440)]],
+      [3, [day(3, 1440, 1440)]],
+      [4, [day(4, 1440, 1440)]],
+      [5, [day(5, 720, 1440)]],
+    ])
+    const list = rows({
+      monitors: members,
+      states: new Map(members.map((m) => [m.id, { ok: m.id !== 5, since: 0 }])),
+      days,
+      latency: new Map(),
+      spark: new Map(),
+    })
+    // The median member had a perfect day, so the group's day is perfect.
+    expect(uptimeOf(list[0]?.days ?? [])).toBe(100)
+  })
+
   test("half or more unreachable is the machine's problem, fewer is not", () => {
     const half = (up: number, total: number): Monitor[] =>
       Array.from({ length: total }, (_, i) => ({
@@ -103,7 +148,7 @@ describe("one customer's site is not every customer's site", () => {
     expect(shape(2, 5)?.ok).toBe(false)
   })
 
-  test("a group with some members up is trouble, not an outage", () => {
+  test("the banner stays calm while most of a group is serving", () => {
     const partly: Row[] = [
       { name: "API", ok: true, partial: false, days: [], latency: 10, spark: null },
       {
@@ -115,7 +160,8 @@ describe("one customer's site is not every customer's site", () => {
         spark: null,
       },
     ]
-    expect(overall(partly)).toBe("degraded")
+    // One customer's own certificate being wrong is not everyone's news.
+    expect(overall(partly)).toBe("up")
   })
 
   test("a group where nothing answers is an outage", () => {
@@ -132,7 +178,7 @@ describe("one customer's site is not every customer's site", () => {
     expect(overall(all)).toBe("down")
   })
 
-  test("a group that is partly up never claims a total outage on its own", () => {
+  test("a partly-up group never speaks for the whole page", () => {
     const only: Row[] = [
       {
         name: "Hosted sites",
@@ -143,7 +189,7 @@ describe("one customer's site is not every customer's site", () => {
         spark: null,
       },
     ]
-    expect(overall(only)).toBe("degraded")
+    expect(overall(only)).toBe("up")
   })
 })
 
