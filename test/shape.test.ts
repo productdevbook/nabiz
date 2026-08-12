@@ -160,8 +160,8 @@ describe("one customer's site is not every customer's site", () => {
         spark: null,
       },
     ]
-    // One customer's own certificate being wrong is not everyone's news.
-    expect(overall(partly)).toBe("up")
+    // Said plainly, in its own words: not an outage, not silence either.
+    expect(overall(partly)).toBe("sites")
   })
 
   test("a group where nothing answers is an outage", () => {
@@ -189,7 +189,7 @@ describe("one customer's site is not every customer's site", () => {
         spark: null,
       },
     ]
-    expect(overall(only)).toBe("up")
+    expect(overall(only)).toBe("sites")
   })
 })
 

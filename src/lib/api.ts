@@ -60,7 +60,12 @@ export function historyJson(data: PageData): Response {
   })
 }
 
-const COLORS: Record<Overall, string> = { up: "#22a06b", degraded: "#e8a13c", down: "#d64545" }
+const COLORS: Record<Overall, string> = {
+  up: "#22a06b",
+  sites: "#e8a13c",
+  degraded: "#e8a13c",
+  down: "#d64545",
+}
 
 /** A shields-style badge for a readme: label "status", value the overall. */
 export function badge(data: PageData): Response {
@@ -163,8 +168,8 @@ served only to it — a notice with no language speaks to everyone.
 The page answers to the shape of the request, so the cheapest question
 works:
 
-- HEAD ${origin}/ — the "x-status" response header says up, degraded or
-  down; no body needed. ${origin}/api/status.json carries it too.
+- HEAD ${origin}/ — the "x-status" response header says up, sites,
+  degraded or down; no body needed. ${origin}/api/status.json carries it too.
 - GET ${origin}/ with "Accept: application/json" (and no text/html)
   returns the status.json body instead of HTML.
 - A Link header on / points to this file, the JSON and the RSS feed;
@@ -179,7 +184,9 @@ POST /api/notice with Authorization: Bearer <token> and a JSON body of
 
 ## Reading status.json
 
-"status" is "up", "degraded" or "down" for the whole page. Each monitor
+"status" is one of four for the whole page: "up", "sites" when only some
+of the hosted sites are unreachable and everything else is serving,
+"degraded" when a service is down, and "down" when nothing answers. Each monitor
 carries "status", "uptime_90d" (percent, null before the first day of data),
 and "latency_ms" from the most recent successful probe. A grouped
 monitor speaks for several hosts and says only how it is: "degraded"

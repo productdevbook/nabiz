@@ -22,7 +22,14 @@ const noticeList = await notices(env.DB, 3, lang)
 
 const list = rows(data)
 const state = overall(list)
-const banner = state === "up" ? "all_up" : state === "down" ? "all_down" : "some_down"
+const banner =
+  state === "up"
+    ? "all_up"
+    : state === "down"
+      ? "all_down"
+      : state === "sites"
+        ? "sites_down"
+        : "some_down"
 const bannerClass = state === "up" ? "ok" : state === "down" ? "bad" : "meh"
 const openNotices = noticeList.filter((n) => n.resolved_at === null)
 const pastNotices = noticeList.filter((n) => n.resolved_at !== null)

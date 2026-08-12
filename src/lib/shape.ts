@@ -28,7 +28,11 @@ export const GROUP_OUTAGE = 0.5
  *  group's history down — five sites, one down for two hours, and the row
  *  reports a fifth of that outage as if everyone had suffered it. The
  *  median moves only when half the group does, which is the same line the
- *  group's state is drawn at. */
+ *  group's state is drawn at.
+ *
+ *  What it costs: a site that is down alone leaves no mark on the group's
+ *  ninety days. That history is the group's, not any member's, and the
+ *  member's own is not this page's to publish. */
 function medianDays(lists: DayRow[][]): DayRow[] {
   const byDay = new Map<string, { ok: number; total: number }[]>()
   for (const list of lists)
@@ -94,17 +98,27 @@ export function rows(data: PageData): Row[] {
   return out
 }
 
-export type Overall = "up" | "degraded" | "down"
+/** What the whole page is, in one word.
+ *
+ *  `sites` is its own state rather than a shade of `degraded`, because the
+ *  two are different news for different people. A service being down is
+ *  everyone's problem; a few of the hosted sites being unreachable is
+ *  their owners' problem, and the banner should say which it is instead
+ *  of alarming everybody or — worse — going quiet. */
+export type Overall = "up" | "sites" | "degraded" | "down"
 
 export function overall(list: Row[]): Overall {
   const known = list.filter((r) => r.ok !== null)
-  // A group that is partly up says so in its own row and nowhere else.
-  // The banner speaks for everyone reading the page: one customer's own
-  // certificate or DNS being wrong is not news the other customers need,
-  // and a page that cries outage over it teaches them to ignore it.
+  if (known.length === 0) return "up"
   const troubled = known.filter((r) => r.ok === false && !r.partial)
-  if (known.length === 0 || troubled.length === 0) return "up"
-  return troubled.length === known.length ? "down" : "degraded"
+  if (troubled.length > 0) {
+    return troubled.length === known.length ? "down" : "degraded"
+  }
+  // Nothing is fully down, but some hosted sites are unreachable. Said
+  // plainly rather than hidden: a page that stays green while somebody's
+  // site is dark is lying to them, and one that cries outage over it
+  // teaches everybody else to stop reading it.
+  return known.some((r) => r.partial) ? "sites" : "up"
 }
 
 export function uptimeOf(days: DayRow[]): number | null {

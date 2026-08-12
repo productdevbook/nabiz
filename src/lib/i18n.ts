@@ -4,6 +4,7 @@ const strings = {
   en: {
     all_up: "All systems operational",
     some_down: "Some systems are having trouble",
+    sites_down: "Some published sites are unreachable",
     all_down: "Major outage",
     up: "up",
     partly: "partly up",
@@ -39,6 +40,7 @@ const strings = {
   tr: {
     all_up: "Tüm sistemler çalışıyor",
     some_down: "Bazı sistemlerde sorun var",
+    sites_down: "Yayınlanan sitelerin bir kısmına erişilemiyor",
     all_down: "Büyük kesinti",
     up: "ayakta",
     partly: "kısmen ayakta",
@@ -74,6 +76,7 @@ const strings = {
   de: {
     all_up: "Alle Systeme funktionieren",
     some_down: "Einige Systeme haben Probleme",
+    sites_down: "Einige veröffentlichte Seiten sind nicht erreichbar",
     all_down: "Größerer Ausfall",
     up: "erreichbar",
     partly: "teilweise erreichbar",
@@ -109,6 +112,7 @@ const strings = {
   es: {
     all_up: "Todos los sistemas funcionan",
     some_down: "Algunos sistemas tienen problemas",
+    sites_down: "Algunos sitios publicados no están accesibles",
     all_down: "Interrupción mayor",
     up: "activo",
     partly: "parcialmente activo",
@@ -144,6 +148,7 @@ const strings = {
   fr: {
     all_up: "Tous les systèmes fonctionnent",
     some_down: "Certains systèmes rencontrent des problèmes",
+    sites_down: "Certains sites publiés sont inaccessibles",
     all_down: "Panne majeure",
     up: "en ligne",
     partly: "partiellement en ligne",
