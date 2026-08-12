@@ -100,7 +100,8 @@ export function pastNotice(n: Notice, lang: Lang): string {
 
 /** The row's star is the uptime figure; latency is a whispered aside. */
 export function serviceRow(r: Row, lang: Lang): string {
-  const dot = r.ok === null ? "none" : r.ok ? "ok" : "bad"
+  // Amber, not red: a group with some members up is trouble, not an outage.
+  const dot = r.ok === null ? "none" : r.ok ? "ok" : r.partial ? "meh" : "bad"
   const word =
     r.tally !== null
       ? `${esc(r.tally)} ${t(lang, "up")}`

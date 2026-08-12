@@ -7,6 +7,10 @@ import type { DayRow, EventRow, PageData } from "./store"
 export interface Row {
   name: string
   ok: boolean | null
+  /** A group with some members up and some down. One customer's site being
+   *  unreachable is not every customer's site being unreachable, and a row
+   *  that says otherwise makes the page lie about the machine. */
+  partial: boolean
   days: DayRow[]
   latency: number | null
   tally: string | null
@@ -41,6 +45,7 @@ export function rows(data: PageData): Row[] {
     out.push({
       name: m.name,
       ok: s ? s.ok : null,
+      partial: false,
       days: data.days.get(m.id) ?? [],
       latency: data.latency.get(m.id) ?? null,
       tally: null,
@@ -54,6 +59,7 @@ export function rows(data: PageData): Row[] {
     out.push({
       name,
       ok: known === 0 ? null : up === known,
+      partial: known > 0 && up > 0 && up < known,
       days: mergeDays(members.map((m) => data.days.get(m.id) ?? [])),
       latency: null,
       tally: known === 0 ? null : `${up}/${known}`,
@@ -67,9 +73,12 @@ export type Overall = "up" | "degraded" | "down"
 
 export function overall(list: Row[]): Overall {
   const known = list.filter((r) => r.ok !== null)
-  const downs = known.filter((r) => r.ok === false).length
-  if (known.length === 0 || downs === 0) return "up"
-  return downs === known.length ? "down" : "degraded"
+  const troubled = known.filter((r) => r.ok === false)
+  if (known.length === 0 || troubled.length === 0) return "up"
+  // A group that is partly up is trouble, never a total outage: everything
+  // being down is the one claim this page must not make lightly.
+  const total = troubled.every((r) => !r.partial) && troubled.length === known.length
+  return total ? "down" : "degraded"
 }
 
 export function uptimeOf(days: DayRow[]): number | null {

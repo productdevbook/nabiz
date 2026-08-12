@@ -365,6 +365,9 @@
   .state.bad::before {
     background: var(--bad);
   }
+  .state.meh::before {
+    background: var(--meh);
+  }
   .state.none::before {
     background: var(--mut);
   }

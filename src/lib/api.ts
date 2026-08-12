@@ -28,7 +28,7 @@ export function statusJson(data: PageData, events: EventRow[]): Response {
     monitors: list.map((r) => {
       const m: Record<string, unknown> = {
         name: r.name,
-        status: r.ok === null ? "unknown" : r.ok ? "up" : "down",
+        status: r.ok === null ? "unknown" : r.ok ? "up" : r.partial ? "degraded" : "down",
         uptime_90d: uptimeOf(r.days),
       }
       if (r.tally !== null) m.up = r.tally

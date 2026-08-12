@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
 import type { Monitor } from "../src/lib/probe"
+import type { Row } from "../src/lib/shape"
 import { eventsView, overall, rows, uptimeOf } from "../src/lib/shape"
 import type { PageData } from "../src/lib/store"
 
@@ -59,6 +60,54 @@ describe("grouped monitors are counted, never listed", () => {
     const a = monitor({ grouped: 1, group_name: "Hosted", name: "secret-a" })
     const view = eventsView([a], [{ monitor_id: a.id, at: 1, ok: 0 }])
     expect(view[0]?.label).toBe("Hosted")
+  })
+})
+
+describe("one customer's site is not every customer's site", () => {
+  test("a group with some members up is trouble, not an outage", () => {
+    const partly: Row[] = [
+      { name: "API", ok: true, partial: false, days: [], latency: 10, tally: null, spark: null },
+      {
+        name: "Hosted sites",
+        ok: false,
+        partial: true,
+        days: [],
+        latency: null,
+        tally: "4/5",
+        spark: null,
+      },
+    ]
+    expect(overall(partly)).toBe("degraded")
+  })
+
+  test("a group where nothing answers is an outage", () => {
+    const all: Row[] = [
+      {
+        name: "Hosted sites",
+        ok: false,
+        partial: false,
+        days: [],
+        latency: null,
+        tally: "0/5",
+        spark: null,
+      },
+    ]
+    expect(overall(all)).toBe("down")
+  })
+
+  test("a group that is partly up never claims a total outage on its own", () => {
+    const only: Row[] = [
+      {
+        name: "Hosted sites",
+        ok: false,
+        partial: true,
+        days: [],
+        latency: null,
+        tally: "4/5",
+        spark: null,
+      },
+    ]
+    expect(overall(only)).toBe("degraded")
   })
 })
 
