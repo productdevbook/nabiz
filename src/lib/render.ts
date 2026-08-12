@@ -103,13 +103,9 @@ export function serviceRow(r: Row, lang: Lang): string {
   // Amber, not red: a group with some members up is trouble, not an outage.
   const dot = r.ok === null ? "none" : r.ok ? "ok" : r.partial ? "meh" : "bad"
   const word =
-    r.tally !== null
-      ? `${esc(r.tally)} ${t(lang, "up")}`
-      : r.ok === null
-        ? "—"
-        : t(lang, r.ok ? "up" : "down")
+    r.ok === null ? "—" : r.ok ? t(lang, "up") : r.partial ? t(lang, "partly") : t(lang, "down")
   const tele =
-    r.latency !== null && r.tally === null
+    r.latency !== null
       ? `<span class="tele ${dot}">${r.spark ? sparkline(r.spark, lang) : ""}<span class="ms">${r.latency} ms</span></span>`
       : ""
   const pct = uptimeLabel(r.days, lang)

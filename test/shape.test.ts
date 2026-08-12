@@ -37,7 +37,7 @@ function data(monitors: Monitor[], states: [number, boolean][]): PageData {
 }
 
 describe("grouped monitors are counted, never listed", () => {
-  test("a group collapses to a tally under its group name", () => {
+  test("a group speaks under its own name and publishes no count", () => {
     const a = monitor({ grouped: 1, group_name: "Hosted", name: "secret-a" })
     const b = monitor({ grouped: 1, group_name: "Hosted", name: "secret-b" })
     const list = rows(
@@ -52,7 +52,8 @@ describe("grouped monitors are counted, never listed", () => {
 
     expect(list).toHaveLength(1)
     expect(list[0]?.name).toBe("Hosted")
-    expect(list[0]?.tally).toBe("1/2")
+    // The row says how the group is, never how many it speaks for.
+    expect(JSON.stringify(list[0])).not.toContain("1/2")
     expect(JSON.stringify(list)).not.toContain("secret")
   })
 
@@ -64,16 +65,53 @@ describe("grouped monitors are counted, never listed", () => {
 })
 
 describe("one customer's site is not every customer's site", () => {
+  test("half or more unreachable is the machine's problem, fewer is not", () => {
+    const half = (up: number, total: number): Monitor[] =>
+      Array.from({ length: total }, (_, i) => ({
+        id: i + 1,
+        slug: `s${i}`,
+        name: `site ${i}`,
+        url: "https://example.test/",
+        method: "GET",
+        expect_status: 200,
+        timeout_ms: 1000,
+        expect_body: null,
+        fail_threshold: 2,
+        group_name: "Hosted sites",
+        grouped: 1,
+        enabled: 1,
+        position: i,
+      })).map((m, i) => ({ ...m, ok: i < up }) as unknown as Monitor)
+
+    const shape = (up: number, total: number) => {
+      const monitors = half(up, total)
+      const states = new Map(monitors.map((m, i) => [m.id, { ok: i < up, since: 0 }]))
+      return rows({
+        monitors,
+        states,
+        days: new Map(),
+        latency: new Map(),
+        spark: new Map(),
+      })[0]
+    }
+
+    expect(shape(5, 5)?.ok).toBe(true)
+    // One of five: trouble, and the page still says something is serving.
+    expect(shape(4, 5)?.partial).toBe(true)
+    // Three of five: the machine's problem, and the row says down.
+    expect(shape(2, 5)?.partial).toBe(false)
+    expect(shape(2, 5)?.ok).toBe(false)
+  })
+
   test("a group with some members up is trouble, not an outage", () => {
     const partly: Row[] = [
-      { name: "API", ok: true, partial: false, days: [], latency: 10, tally: null, spark: null },
+      { name: "API", ok: true, partial: false, days: [], latency: 10, spark: null },
       {
         name: "Hosted sites",
         ok: false,
         partial: true,
         days: [],
         latency: null,
-        tally: "4/5",
         spark: null,
       },
     ]
@@ -88,7 +126,6 @@ describe("one customer's site is not every customer's site", () => {
         partial: false,
         days: [],
         latency: null,
-        tally: "0/5",
         spark: null,
       },
     ]
@@ -103,7 +140,6 @@ describe("one customer's site is not every customer's site", () => {
         partial: true,
         days: [],
         latency: null,
-        tally: "4/5",
         spark: null,
       },
     ]

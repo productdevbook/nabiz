@@ -31,7 +31,6 @@ export function statusJson(data: PageData, events: EventRow[]): Response {
         status: r.ok === null ? "unknown" : r.ok ? "up" : r.partial ? "degraded" : "down",
         uptime_90d: uptimeOf(r.days),
       }
-      if (r.tally !== null) m.up = r.tally
       if (r.latency !== null) m.latency_ms = r.latency
       return m
     }),
@@ -141,8 +140,9 @@ export function llms(origin: string, title: string): Response {
 
 This is a status page, run by nabiz (https://github.com/productdevbook/nabiz).
 It probes the services listed on it every minute and keeps ninety days of
-history. Monitors marked as a group ("N/M up") stand for hosts that are
-served here but named elsewhere; they are counted, never listed.
+history. A monitor marked as a group stands for several hosts that are
+served here but named elsewhere; neither their names nor their number is
+published.
 
 ## Endpoints
 
@@ -180,9 +180,11 @@ POST /api/notice with Authorization: Bearer <token> and a JSON body of
 ## Reading status.json
 
 "status" is "up", "degraded" or "down" for the whole page. Each monitor
-carries "status", "uptime_90d" (percent, null before the first day of
-data), and "latency_ms" from the most recent successful probe. Grouped
-monitors carry "up" as a tally like "5/6" instead of a latency.
+carries "status", "uptime_90d" (percent, null before the first day of data),
+and "latency_ms" from the most recent successful probe. A grouped
+monitor speaks for several hosts and says only how it is: "degraded"
+while some of them are unreachable, "down" once half or more are. How
+many there are is not published — that number is a customer count.
 `
   return new Response(text, {
     headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store", ...CORS },

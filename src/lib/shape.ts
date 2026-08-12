@@ -2,8 +2,9 @@ import type { Monitor } from "./probe"
 import type { DayRow, EventRow, PageData } from "./store"
 
 /** One line on the page or in the API: a monitor, or a group speaking for
- *  its members. Grouped members never appear on their own — a public status
- *  page does not have to be a public customer list. */
+ *  its members. Grouped members never appear on their own, and neither
+ *  does their number — a public status page does not have to be a public
+ *  customer list, and "4/5 up" is a customer count in disguise. */
 export interface Row {
   name: string
   ok: boolean | null
@@ -13,9 +14,13 @@ export interface Row {
   partial: boolean
   days: DayRow[]
   latency: number | null
-  tally: string | null
   spark: number[] | null
 }
+
+/** How much of a group has to be unreachable before the group is called
+ *  down rather than troubled. Half: one site of five is a site's problem,
+ *  three of five is the machine's, and the page should say which. */
+export const GROUP_OUTAGE = 0.5
 
 function mergeDays(lists: DayRow[][]): DayRow[] {
   const byDay = new Map<string, DayRow>()
@@ -48,7 +53,6 @@ export function rows(data: PageData): Row[] {
       partial: false,
       days: data.days.get(m.id) ?? [],
       latency: data.latency.get(m.id) ?? null,
-      tally: null,
       spark: data.spark.get(m.id) ?? null,
     })
   }
@@ -56,13 +60,15 @@ export function rows(data: PageData): Row[] {
   for (const [name, members] of grouped) {
     const up = members.filter((m) => data.states.get(m.id)?.ok).length
     const known = members.filter((m) => data.states.get(m.id) !== undefined).length
+    const downs = known - up
     out.push({
       name,
-      ok: known === 0 ? null : up === known,
-      partial: known > 0 && up > 0 && up < known,
+      // Down only once enough of the group is unreachable to be the
+      // machine's problem rather than one site's.
+      ok: known === 0 ? null : downs === 0,
+      partial: known > 0 && downs > 0 && downs / known < GROUP_OUTAGE,
       days: mergeDays(members.map((m) => data.days.get(m.id) ?? [])),
       latency: null,
-      tally: known === 0 ? null : `${up}/${known}`,
       spark: null,
     })
   }
