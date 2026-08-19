@@ -62,6 +62,17 @@ The local D1 lives under `.wrangler/state/`; create it once with
 - Relative imports carry the `.ts` extension: Node runs the server entry
   straight from source and does not guess extensions.
 - Comments only for what the code cannot say. Commit messages say why.
+- **Commits are Conventional Commits**: `type(scope): summary`, with the
+  scope optional and the summary in this repository's voice — a sentence
+  that says what changed, not a label. `feat`, `fix`, `perf`, `refactor`,
+  `docs`, `test`, `build`, `ci`, `chore`; `!` after the type for a break.
+  The body is still where the why goes.
+
+      fix(shape): a row that says it is grouped is never published by name
+      perf(store): every read of the checks table asks for a window of time
+      docs(api): the page says what the code does, not what it once did
+
+  Pull request titles are the same shape.
 - Release notes are headings and bullets, one line each, scannable in ten
   seconds. The reasoning belongs in the commit message, not the release.
 
