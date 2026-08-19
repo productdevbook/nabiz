@@ -12,8 +12,9 @@ function held(seconds: number | null, lang: Lang): string {
   if (seconds === null) return ""
   const h = Math.floor(seconds / 3600)
   const m = Math.floor((seconds % 3600) / 60)
-  const text = h > 0 ? `${h}h ${m}m` : `${m}m`
-  return ` (${t(lang, "after")} ${text})`
+  const hours = `${h}${t(lang, "unit_h")}`
+  const mins = `${m}${t(lang, "unit_m")}`
+  return ` (${t(lang, "after")} ${h > 0 ? `${hours} ${mins}` : mins})`
 }
 
 /** Says what changed, wherever the operator asked to hear it. Best-effort:

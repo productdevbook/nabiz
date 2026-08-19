@@ -16,12 +16,15 @@ export function esc(s: string): string {
   )
 }
 
-// Turkish writes %50, English writes 50% — the sign follows the language.
+// Turkish writes %50 and English 50%; the four others put a comma where
+// English puts a point, and three of them a space before the sign.
 // Rounded down, not to nearest: 99.997% is not a hundred, and a status
 // page that says it is has rounded away the only failure of the quarter.
 export function percent(pct: number, lang: Lang): string {
-  const n = pct === 100 ? "100" : (Math.floor(pct * 100) / 100).toFixed(2)
-  return lang === "tr" ? `%${n}` : `${n}%`
+  const plain = pct === 100 ? "100" : (Math.floor(pct * 100) / 100).toFixed(2)
+  const n = lang === "en" ? plain : plain.replace(".", ",")
+  if (lang === "tr") return `%${n}`
+  return lang === "en" ? `${n}%` : `${n} %`
 }
 
 export function when(at: number): string {

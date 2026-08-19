@@ -2,6 +2,7 @@ import type { Db } from "./db.ts"
 import type { Lang } from "./i18n.ts"
 import { isLang, t } from "./i18n.ts"
 import { render } from "./markdown.ts"
+import { sevLabel } from "./render.ts"
 import type { Overall } from "./shape.ts"
 import { eventsView, overall, rows, uptimeOf } from "./shape.ts"
 import type { EventRow, Notice, PageData } from "./store.ts"
@@ -128,7 +129,7 @@ export function feed(
   for (const n of noticeList) {
     entries.push({
       at: n.at,
-      xml: `<item><title>[${escXml(n.severity)}] ${escXml((n.body_md.split("\n")[0] ?? "").slice(0, 100))}</title><description>${escXml(render(n.body_md))}</description><pubDate>${new Date(n.at).toUTCString()}</pubDate><guid isPermaLink="false">notice-${n.id}</guid><link>${origin}/</link></item>`,
+      xml: `<item><title>[${escXml(sevLabel(n.severity, lang))}] ${escXml((n.body_md.split("\n")[0] ?? "").slice(0, 100))}</title><description>${escXml(render(n.body_md))}</description><pubDate>${new Date(n.at).toUTCString()}</pubDate><guid isPermaLink="false">notice-${n.id}</guid><link>${origin}/</link></item>`,
     })
   }
   const items = entries

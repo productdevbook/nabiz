@@ -1,17 +1,34 @@
 import { describe, expect, test } from "bun:test"
 
-import { langOf, t } from "../src/lib/i18n.ts"
-import type { Key, Lang } from "../src/lib/i18n.ts"
-
-const langs: Lang[] = ["en", "tr", "de", "es", "fr"]
-const someKeys: Key[] = ["all_up", "notices", "ed_publish", "sev_outage", "recent_events"]
+import { KEYS, LANGS, langOf, t, table } from "../src/lib/i18n.ts"
 
 describe("five languages, none of them half-finished", () => {
   test("every language answers every key with something non-empty", () => {
-    for (const lang of langs)
-      for (const key of someKeys) {
-        expect(t(lang, key).length).toBeGreaterThan(0)
-      }
+    const empty: string[] = []
+    for (const lang of LANGS)
+      for (const key of KEYS) if (t(lang, key).trim() === "") empty.push(`${lang}.${key}`)
+    expect(empty).toEqual([])
+  })
+
+  // The checker catches a key missing from a language; it cannot catch one
+  // added to a language English does not have, because English is the shape
+  // it checks against. That key would be a string nobody can ever read.
+  test("no language carries a key english does not", () => {
+    const known = new Set<string>(KEYS)
+    const extra: string[] = []
+    for (const lang of LANGS)
+      for (const key of Object.keys(table[lang])) if (!known.has(key)) extra.push(`${lang}.${key}`)
+    expect(extra).toEqual([])
+  })
+
+  test("a placeholder in one language is a placeholder in all of them", () => {
+    const wrong: string[] = []
+    for (const key of KEYS) {
+      const wanted = t("en", key).includes("{n}")
+      for (const lang of LANGS)
+        if (t(lang, key).includes("{n}") !== wanted) wrong.push(`${lang}.${key}`)
+    }
+    expect(wrong).toEqual([])
   })
 
   test("an unknown language falls back to english, not to a crash", () => {

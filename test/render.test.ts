@@ -10,9 +10,13 @@ describe("a percentage the page can stand behind", () => {
     expect(percent(99.995, "en")).toBe("99.99%")
   })
 
-  test("a hundred is written without decimals, and in the language's order", () => {
+  test("each language writes the number the way it writes numbers", () => {
     expect(percent(100, "en")).toBe("100%")
     expect(percent(100, "tr")).toBe("%100")
-    expect(percent(99.5, "tr")).toBe("%99.50")
+    // A comma where English puts a point, and the sign where it belongs.
+    expect(percent(99.5, "tr")).toBe("%99,50")
+    expect(percent(99.5, "de")).toBe("99,50 %")
+    expect(percent(99.5, "fr")).toBe("99,50 %")
+    expect(percent(99.5, "es")).toBe("99,50 %")
   })
 })
