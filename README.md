@@ -49,10 +49,12 @@ source, same schema. *nabız* is Turkish for "pulse"; the ASCII spelling
 
 - One probe per monitor per minute: method, expected status, timeout,
   optional body match.
-- Anti-flap: down after `fail_threshold` consecutive failures (default 2);
-  recovery is immediate.
+- Anti-flap: a watched monitor is called down after `fail_threshold`
+  consecutive failures (default 2); recovery is immediate, and a monitor
+  that is already down when first seen is believed at once.
 - 90-day uptime bars and a 24-hour latency sparkline per monitor.
-- Grouped monitors: a tally ("6/6 up") without listing names.
+- Grouped monitors: one row saying how the group is, never how many it
+  speaks for and never their names.
 - Operator notices in markdown, with severity and per-language targeting.
 - Alerts to Telegram and a webhook on state changes.
 - Five languages (en, tr, de, es, fr), light and dark, auto-refresh.
@@ -87,7 +89,7 @@ next — see [Monitors](docs/monitors.md).
 ```sh
 bun install
 bunx wrangler d1 execute nabiz --local --file schema.sql   # once
-bun run dev                                                # :5173, local D1
+bun run dev                                                # :4321, local D1
 bun run check                                              # what CI runs
 ```
 

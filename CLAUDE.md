@@ -32,7 +32,7 @@ the cron was, SQLite where D1 was. `src/server/index.ts` is that entry.
 
 ## Commands
 
-    bun run dev          dev server on :5173 with a local D1 (miniflare)
+    bun run dev          dev server on :4321 with a local D1 (miniflare)
     bun run check        typecheck + lint + format check + tests — run
                          before every commit; CI runs this plus both builds
     bun run build        astro build; also the only full typecheck of

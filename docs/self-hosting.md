@@ -42,8 +42,10 @@ bun run build:server     # astro build for the server target
 bun run start            # or: node src/server/index.ts
 ```
 
-The database is `NABIZ_DB` (`/data/nabiz.db` by default) and the schema is
-applied on start, so a path that does not exist yet becomes a working page.
+The database is `NABIZ_DB` — `./nabiz.db` beside the checkout by default,
+`/data/nabiz.db` in the image. The schema is applied on start, so a file
+that does not exist yet becomes a working page; the directory around it
+has to exist already.
 
 ## What the container promises
 

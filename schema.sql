@@ -16,8 +16,8 @@ CREATE TABLE IF NOT EXISTS monitors (
   -- One network blip in a minute-long window is weather, not an outage.
   fail_threshold INTEGER NOT NULL DEFAULT 2,
   group_name TEXT,
-  -- Grouped monitors are shown only as their group's tally ("6/6 up"),
-  -- never by name. For the sites you host but do not own.
+  -- A grouped monitor is shown only through its group's one row — never by
+  -- name, and never as a count. For the sites you host but do not own.
   grouped INTEGER NOT NULL DEFAULT 0,
   enabled INTEGER NOT NULL DEFAULT 1,
   position INTEGER NOT NULL DEFAULT 0

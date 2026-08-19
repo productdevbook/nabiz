@@ -1,8 +1,9 @@
 # API
 
 Read-only, CORS-open and uncached: what you get is what is true at the
-moment you asked. Every endpoint takes `?lang=` (`en`, `tr`, `de`, `es`,
-`fr`).
+moment you asked. Three of them answer in a language — `/`, `/feed.xml`
+and `/api/notices.json` take `?lang=` (`en`, `tr`, `de`, `es`, `fr`); the
+rest carry no words to translate.
 
 | Endpoint | Returns |
 |---|---|
@@ -16,12 +17,13 @@ moment you asked. Every endpoint takes `?lang=` (`en`, `tr`, `de`, `es`,
 
 ## Without scraping the page
 
-- Every response carries an `x-status` header — `up`, `sites`, `degraded`
-  or `down`. A `HEAD /` is enough to read the overall state.
+- `/` and `/api/status.json` carry an `x-status` header — `up`, `sites`,
+  `degraded` or `down`. A `HEAD /` is enough to read the overall state.
 - `GET /` with `Accept: application/json` (and no `text/html`) returns the
   `status.json` body instead of HTML.
-- A `Link` header on `/` points to `llms.txt`, the JSON and the feed; the
-  HTML head carries the same as `<link rel="alternate">`.
+- A `Link` header on the HTML `/` points to `llms.txt`, the JSON and the
+  feed; the HTML head carries the same as `<link rel="alternate">`. The
+  JSON answer to `/` carries `x-status` but not that header.
 
 ## Reading status.json
 
@@ -29,10 +31,16 @@ moment you asked. Every endpoint takes `?lang=` (`en`, `tr`, `de`, `es`,
 of the hosted sites are unreachable and everything else is serving;
 `degraded` when a service is down; `down` when nothing answers.
 
-Each monitor carries `status`, `uptime_90d` (percent, `null` before the
-first day of data) and `latency_ms` from the most recent successful probe.
-A grouped monitor says only how it is — how many hosts it speaks for is
-not published.
+Each monitor carries `status` — `up`, `degraded`, `down`, or `unknown`
+before its first probe has written anything — `uptime_90d` (percent,
+`null` before the first day of data) and `latency_ms` from the most recent
+successful probe.
+
+A group says only how it is; how many hosts it speaks for is not
+published. Its `uptime_90d` and its days in `history.json` are the median
+member's rather than a total, so one member's outage does not become
+everyone's history — and a day fewer than half the members have data for
+is left out rather than guessed at.
 
 ## Notices
 
@@ -55,5 +63,7 @@ curl -X POST https://status.example.com/api/notice/resolve \
   language is served only to it.
 - `body`: markdown, 1 to 4000 characters.
 
-Guesses at the token are limited to ten a minute per address; a request
-that turns out to be authorized does not count against them.
+Guesses at the token are limited to ten a minute per address, and a
+refusal carries `retry-after: 60`. A request that turns out to be
+authorized clears the count — but the limit is checked before the token
+is, so once it has tripped even the right token waits out the window.

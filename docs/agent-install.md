@@ -93,7 +93,7 @@ timeout — not a broken install.
 | `… did not load — if the last build was bun run build` | `dist/` holds the Worker build, not the server one | `bun run build:server` |
 | `Cross-site POST form submissions are forbidden` | a POST without `content-type: application/json` | send the header |
 | `{"error":"unauthorized"}` | `ADMIN_TOKEN` is unset in the deployment, or the token is wrong | set it and restart; a token set after the container started is not in it |
-| `{"error":"too many attempts"}` | ten wrong guesses in a minute from one address | wait a minute; a correct token clears it |
+| `{"error":"too many attempts"}` | ten requests in a minute from one address | wait out the window; the limit is checked before the token, so the right one is refused too until it passes |
 | `[nabiz] the probe round failed: …` | the round threw — read the rest of the line, it names the cause (a full disk says so) | fix what it names; the page keeps serving meanwhile |
 | the page renders but no monitors | no rows, or `enabled = 0` | add rows |
 | every monitor is down at once | the machine cannot reach anything — DNS or egress, not nabiz | check from the same host with curl |

@@ -18,9 +18,10 @@ On Cloudflare these are `[vars]` in `wrangler.toml` and secrets set with
 |---|---|---|
 | `PORT` | `8080` | |
 | `HOST` | `0.0.0.0` | |
-| `NABIZ_DB` | `/data/nabiz.db` | the SQLite file; the schema is applied on start |
+| `NABIZ_DB` | `./nabiz.db`, and `/data/nabiz.db` in the image | the SQLite file; the schema is applied on start |
 | `NABIZ_INTERVAL_MS` | `60000` | how often the probe round runs |
 | `NABIZ_DIST` | next to the source | where the built site is |
+| `NABIZ_SCHEMA` | `schema.sql` beside it | the schema applied on start |
 | `TRUST_PROXY` | off | see below |
 
 A value that is not a number falls back to the default rather than
@@ -28,7 +29,8 @@ through: a `PORT` of `later` is 8080, not a random port.
 
 `LANG` is a POSIX variable before it is nabiz's, so on a server
 `NABIZ_LANG` wins and a `LANG` that is not one of the five languages is
-ignored.
+ignored. `TITLE` has no such conflict and is read on a server too, with
+`NABIZ_TITLE` winning — worth knowing if an env file already has one.
 
 ## TRUST_PROXY
 
