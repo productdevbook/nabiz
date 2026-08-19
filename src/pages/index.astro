@@ -50,6 +50,7 @@ Astro.response.headers.set(
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
+    <meta name="description" content={`${title} · ${t(lang, "foot_tag")}`} />
     <link rel="alternate" type="application/rss+xml" href="/feed.xml" />
     <link rel="alternate" type="application/json" href="/api/status.json" />
     <link rel="llms-txt" type="text/plain" href="/llms.txt" />
@@ -240,6 +241,9 @@ Astro.response.headers.set(
       }}
     >
       var dlg, tok, err, pub
+      // Kept out of the swap: a live region that is a new node every tick
+      // is a live region a reader may never hear.
+      var live = document.getElementById("say")
       var sev = "info"
       var sending = false
       function wire() {
@@ -251,30 +255,42 @@ Astro.response.headers.set(
         // The session, not forever: an operator's token left in a browser
         // is a publish button for whoever sits down next.
         tok.value = sessionStorage.getItem("nabiz-token") || ""
-        document.querySelectorAll("#sev button").forEach(function (b) {
-          b.onclick = function () {
-            document.querySelectorAll("#sev button").forEach(function (x) {
-              x.classList.remove("on")
-              x.setAttribute("aria-checked", "false")
-            })
-            b.classList.add("on")
-            b.setAttribute("aria-checked", "true")
-            sev = b.dataset.v
+        var segs = Array.prototype.slice.call(document.querySelectorAll("#sev button"))
+        var pick = function (b, focus) {
+          segs.forEach(function (x) {
+            var on = x === b
+            x.classList.toggle("on", on)
+            x.setAttribute("aria-checked", String(on))
+            // One stop in the tab order for the group, as a radio group has.
+            x.tabIndex = on ? 0 : -1
+          })
+          sev = b.dataset.v
+          if (focus) b.focus()
+        }
+        segs.forEach(function (b, i) {
+          b.tabIndex = b.classList.contains("on") ? 0 : -1
+          b.onclick = function () { pick(b) }
+          b.onkeydown = function (e) {
+            var step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1
+              : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0
+            if (!step) return
+            e.preventDefault()
+            pick(segs[(i + step + segs.length) % segs.length], true)
           }
         })
         pub.onclick = publish
         document.getElementById("cancel").onclick = function () { dlg.close() }
         var ls = document.getElementById("lang")
         if (ls) {
-          // A select changes as it is arrowed through, and navigating on
-          // that means a keyboard user cannot read the list at all.
-          var arrowing = false
-          ls.onkeydown = function (e) {
-            if (e.key === "Enter") { e.preventDefault(); go(ls.value) }
-            else arrowing = e.key.indexOf("Arrow") === 0 || e.key === "Home" || e.key === "End"
-          }
-          ls.onchange = function () { if (!arrowing) go(ls.value) }
-          ls.onblur = function () { if (arrowing) go(ls.value) }
+          // A select changes as it is walked through — by arrow key and by
+          // typing a letter — and navigating on that means a keyboard user
+          // cannot read the list at all. A pointer picking an option is a
+          // decision; a keyboard one is not until Enter or leaving.
+          var picked = false
+          ls.onpointerdown = function () { picked = true }
+          ls.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); go(ls.value) } }
+          ls.onchange = function () { if (picked) { picked = false; go(ls.value) } }
+          ls.onblur = function () { picked = false; go(ls.value) }
         }
         var pen = document.getElementById("pen")
         if (pen) pen.onclick = function (e) { e.preventDefault(); openEd() }
@@ -296,22 +312,23 @@ Astro.response.headers.set(
           b.type = "button"
           b.className = "res"
           b.textContent = resolveLabel + " · #" + n.dataset.notice
-          b.onclick = function () { send("/api/notice/resolve", { id: Number(n.dataset.notice) }) }
+          b.onclick = function () { send("/api/notice/resolve", { id: Number(n.dataset.notice) }, b) }
           box.appendChild(b)
         })
         dlg.showModal()
         document.getElementById("txt").focus()
       }
-      function send(path, body) {
+      function send(path, body, from) {
         if (sending) return
+        var button = from || pub
         sending = true
-        pub.disabled = true
-        pub.setAttribute("aria-busy", "true")
+        button.disabled = true
+        button.setAttribute("aria-busy", "true")
         err.textContent = ""
         var done = function () {
           sending = false
-          pub.disabled = false
-          pub.removeAttribute("aria-busy")
+          button.disabled = false
+          button.removeAttribute("aria-busy")
         }
         fetch(path, {
           method: "POST",
@@ -382,9 +399,7 @@ Astro.response.headers.set(
       function refresh() {
         if (dlg.open) return
         var was = (document.querySelector(".hero-s") || {}).textContent
-        var focused = document.activeElement
-        var mark = focused && focused !== document.body ? focused.id : ""
-        var order = mark ? -1 : seat(focused)
+        var seat = mark(document.activeElement)
         fetch(location.pathname + location.search, { headers: { "x-refresh": "1" } })
           .then(function (r) { return r.text() })
           .then(function (html) {
@@ -392,10 +407,13 @@ Astro.response.headers.set(
             // the editor and whatever was typed into it with it.
             if (dlg.open) return
             var next = new DOMParser().parseFromString(html, "text/html")
+            var incoming = next.getElementById("say")
+            if (incoming) incoming.remove()
             var swap = function () {
               document.body.replaceChildren.apply(document.body, Array.prototype.slice.call(next.body.childNodes))
+              if (live && !live.isConnected) document.body.insertBefore(live, document.body.firstChild)
               wire()
-              sit(mark, order)
+              sit(seat)
               say(was)
             }
             if (document.startViewTransition) document.startViewTransition(swap)
@@ -406,23 +424,28 @@ Astro.response.headers.set(
       function stops() {
         return Array.prototype.slice.call(document.querySelectorAll("a[href],button,select,input,textarea"))
       }
-      function seat(el) {
-        return el ? stops().indexOf(el) : -1
+      /** What the focused element was, in three descriptions: the page is
+       *  rebuilt from new nodes, and its shape changes when a panel comes
+       *  or goes — so a position in the tab order is the last resort, not
+       *  the first. */
+      function mark(el) {
+        if (!el || el === document.body) return null
+        var href = el.getAttribute ? el.getAttribute("href") || "" : ""
+        return { id: el.id || "", href: href.indexOf('"') < 0 ? href : "", at: stops().indexOf(el) }
       }
-      /** The body is replaced wholesale, so the caret has to be put back by
-       *  hand — otherwise a keyboard reader is returned to the top of the
-       *  page every twenty-five seconds. */
-      function sit(mark, order) {
-        var back = mark ? document.getElementById(mark) : order >= 0 ? stops()[order] : null
+      function sit(seat) {
+        if (!seat) return
+        var back = seat.id ? document.getElementById(seat.id) : null
+        if (!back && seat.href) back = document.querySelector('a[href="' + seat.href + '"]')
+        if (!back && seat.at >= 0) back = stops()[seat.at]
         if (back && back.focus) back.focus()
       }
       /** Nothing else announces: the page rewrites itself in place, so a
        *  reader hears the outage end only if it is said. */
       function say(was) {
         var now = (document.querySelector(".hero-s") || {}).textContent
-        var box = document.getElementById("say")
-        if (!box || !now || now === was) return
-        setTimeout(function () { box.textContent = now }, 60)
+        if (!live || !now || now === was) return
+        setTimeout(function () { live.textContent = now }, 60)
       }
       setInterval(refresh, 25000)
       addEventListener("visibilitychange", function () { if (!document.hidden) refresh() })
