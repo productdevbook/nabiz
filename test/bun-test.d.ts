@@ -9,6 +9,8 @@ declare module "bun:test" {
     toBeDefined(): void
     toBeGreaterThan(n: number): void
     toBeCloseTo(n: number): void
+    toThrow(): void
+    rejects: Matchers
     not: Matchers
   }
   export function describe(name: string, fn: () => void): void

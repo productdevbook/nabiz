@@ -1,4 +1,5 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["src/lib", "test"]
+  "include": ["src/lib", "src/server", "test"],
+  "compilerOptions": { "types": ["node"] }
 }
