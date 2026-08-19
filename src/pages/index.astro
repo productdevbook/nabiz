@@ -267,6 +267,10 @@ Astro.response.headers.set(
           sev = b.dataset.v
           if (focus) b.focus()
         }
+        // The body is rebuilt with the first severity selected, so what
+        // the page shows is the truth and the script follows it.
+        var shown = segs.find(function (b) { return b.classList.contains("on") })
+        sev = shown ? shown.dataset.v : "info"
         segs.forEach(function (b, i) {
           b.tabIndex = b.classList.contains("on") ? 0 : -1
           b.onclick = function () { pick(b) }
@@ -287,10 +291,15 @@ Astro.response.headers.set(
           // cannot read the list at all. A pointer picking an option is a
           // decision; a keyboard one is not until Enter or leaving.
           var picked = false
+          var chosen = ls.value
+          var commit = function () { if (ls.value !== chosen) go(ls.value) }
+          ls.onfocus = function () { chosen = ls.value }
           ls.onpointerdown = function () { picked = true }
           ls.onkeydown = function (e) { if (e.key === "Enter") { e.preventDefault(); go(ls.value) } }
           ls.onchange = function () { if (picked) { picked = false; go(ls.value) } }
-          ls.onblur = function () { picked = false; go(ls.value) }
+          // A refresh takes this element out of the page, and the blur that
+          // fires on the way out is not somebody choosing a language.
+          ls.onblur = function () { picked = false; if (ls.isConnected) commit() }
         }
         var pen = document.getElementById("pen")
         if (pen) pen.onclick = function (e) { e.preventDefault(); openEd() }
@@ -301,7 +310,9 @@ Astro.response.headers.set(
         }
       }
       function go(v) {
-        if (v && v !== new URLSearchParams(location.search).get("lang")) location.search = "?lang=" + v
+        // Against what the page is written in, not against the query — the
+        // default entry has no lang in it and every blur would be a change.
+        if (v && v !== document.documentElement.lang) location.search = "?lang=" + v
       }
       function openEd() {
         if (dlg.open) return
@@ -411,7 +422,7 @@ Astro.response.headers.set(
             if (incoming) incoming.remove()
             var swap = function () {
               document.body.replaceChildren.apply(document.body, Array.prototype.slice.call(next.body.childNodes))
-              if (live && !live.isConnected) document.body.insertBefore(live, document.body.firstChild)
+              if (live && !live.isConnected) document.body.insertBefore(live, document.querySelector("main"))
               wire()
               sit(seat)
               say(was)
@@ -431,12 +442,21 @@ Astro.response.headers.set(
       function mark(el) {
         if (!el || el === document.body) return null
         var href = el.getAttribute ? el.getAttribute("href") || "" : ""
-        return { id: el.id || "", href: href.indexOf('"') < 0 ? href : "", at: stops().indexOf(el) }
+        var usable = href.indexOf('"') < 0 && href.indexOf("\\") < 0
+        return { id: el.id || "", href: usable ? href : "", at: stops().indexOf(el) }
       }
       function sit(seat) {
         if (!seat) return
         var back = seat.id ? document.getElementById(seat.id) : null
-        if (!back && seat.href) back = document.querySelector('a[href="' + seat.href + '"]')
+        if (!back && seat.href) {
+          // The same href is in a panel header and in the footer; the one
+          // that had the focus is the one nearest where the focus was.
+          var same = Array.prototype.slice.call(document.querySelectorAll('a[href="' + seat.href + '"]'))
+          var all = stops()
+          same.forEach(function (el) {
+            if (!back || Math.abs(all.indexOf(el) - seat.at) < Math.abs(all.indexOf(back) - seat.at)) back = el
+          })
+        }
         if (!back && seat.at >= 0) back = stops()[seat.at]
         if (back && back.focus) back.focus()
       }
