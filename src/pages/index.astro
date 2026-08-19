@@ -7,7 +7,7 @@ import { callout, eventLine, pastNotice, serviceRow, when } from "../lib/render.
 import { eventsView, overall, rows } from "../lib/shape.ts"
 import { forPage, notices, recentEvents } from "../lib/store.ts"
 
-const lang = langOf(Astro.url.searchParams.get("lang") ?? env.LANG)
+const lang = langOf(Astro.url.searchParams.get("lang") || env.LANG)
 const title = env.TITLE ?? "nabiz"
 
 const data = await forPage(env.DB, 90)

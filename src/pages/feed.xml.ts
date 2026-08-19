@@ -6,7 +6,7 @@ import { langOf } from "../lib/i18n.ts"
 import { forPage, notices, recentEvents } from "../lib/store.ts"
 
 export const GET: APIRoute = async ({ url }) => {
-  const lang = langOf(url.searchParams.get("lang") ?? env.LANG)
+  const lang = langOf(url.searchParams.get("lang") || env.LANG)
   return feed(
     url.origin,
     env.TITLE ?? "nabiz",
