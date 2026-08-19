@@ -9,3 +9,5 @@ test
 deploy
 *.md
 .dev.vars
+.env
+.env.*

@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro"
 import { env } from "cloudflare:workers"
 
-import { authorized, postResolve, throttled } from "../../../lib/api.ts"
+import { authorized, forgive, postResolve, throttled } from "../../../lib/api.ts"
 
 export const POST: APIRoute = async ({ request }) => {
   if (throttled(request))
@@ -14,5 +14,6 @@ export const POST: APIRoute = async ({ request }) => {
       status: 401,
       headers: { "content-type": "application/json" },
     })
+  forgive(request)
   return postResolve(request, env.DB)
 }

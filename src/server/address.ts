@@ -3,9 +3,14 @@
  *  proxies in front is the only thing that makes the header worth reading:
  *  one proxy means the last entry, two means the one before it. */
 export function trustedHops(value: string | undefined): number {
-  if (value === undefined || value === "" || value === "0" || value === "false") return 0
-  const n = Math.trunc(Number(value))
-  return Number.isFinite(n) && n > 0 ? n : 1
+  if (value === undefined) return 0
+  const said = value.trim().toLowerCase()
+  // Only what says a number of proxies, or plainly says yes, counts as
+  // one. Anything else is off: a deployment that meant to turn this off
+  // and wrote "no" must not end up trusting a header instead.
+  if (said === "true" || said === "yes" || said === "on") return 1
+  const n = Math.trunc(Number(said))
+  return said !== "" && Number.isFinite(n) && n > 0 ? n : 0
 }
 
 /** The address the throttle counts by. A chain shorter than the deployment

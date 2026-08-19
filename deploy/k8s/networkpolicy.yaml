@@ -1,0 +1,31 @@
+# TRUST_PROXY tells the process to believe x-forwarded-for, and nothing in
+# a request says whether it came through the ingress or straight to the
+# port. This is what makes that true: only the ingress may reach it, so a
+# pod that could otherwise POST to the Service with a forwarded address of
+# its choosing — and guess the token without ever meeting the throttle —
+# cannot open the connection at all.
+#
+# The namespace label is the one Kubernetes sets on every namespace; change
+# it to wherever your ingress controller runs, or drop this file from
+# kustomization.yaml and unset TRUST_PROXY.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nabiz
+  namespace: nabiz
+  labels:
+    app.kubernetes.io/name: nabiz
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: nabiz
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080

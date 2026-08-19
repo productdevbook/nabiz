@@ -122,8 +122,10 @@ The server target reads a few more, all optional: `PORT` (8080), `HOST`
 `TRUST_PROXY` — the number of proxies in front that write
 `x-forwarded-for` (`1` for the usual one). The notice endpoint counts
 guesses at the token by address; unset, every request behind a proxy
-looks like the proxy, and set too high it would believe an address the
-client typed. Leave it unset when nothing is in front.
+looks like the proxy. Set it only when the port cannot be reached except
+through that proxy: nothing in a request says which way it arrived, so a
+client that can connect directly can hand you any address it likes.
+Anything that is not a count — unset, `0`, `no`, `off` — leaves it off.
 
 ## Notices
 

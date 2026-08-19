@@ -23,15 +23,18 @@ describe("the address a throttle may count by", () => {
   })
 
   test("the count is read the way a deployment would write it", () => {
-    expect(trustedHops(undefined)).toBe(0)
-    expect(trustedHops("")).toBe(0)
-    expect(trustedHops("0")).toBe(0)
-    expect(trustedHops("false")).toBe(0)
     expect(trustedHops("1")).toBe(1)
     expect(trustedHops("2")).toBe(2)
-    // Anything else truthy is one proxy, which is the common shape.
+    expect(trustedHops(" 1 ")).toBe(1)
     expect(trustedHops("true")).toBe(1)
     expect(trustedHops("yes")).toBe(1)
-    expect(trustedHops("-3")).toBe(1)
+    expect(trustedHops("ON")).toBe(1)
+  })
+
+  // Whatever an operator writes to turn this off must turn it off. The
+  // header is only worth reading where a proxy is known to write it.
+  test("everything that is not a count of proxies is off", () => {
+    for (const said of [undefined, "", " ", "0", "false", "off", "no", "none", "disabled", "-3"])
+      expect(trustedHops(said)).toBe(0)
   })
 })

@@ -199,12 +199,30 @@ many there are is not published — that number is a customer count.
   })
 }
 
+/** `null` is what JSON.parse makes of "null", and a body that is not an
+ *  object has no fields to read — both are the same bad request. */
+async function jsonBody<T>(request: Request): Promise<T | null> {
+  try {
+    const parsed: unknown = await request.json()
+    return typeof parsed === "object" && parsed !== null ? (parsed as T) : null
+  } catch {
+    return null
+  }
+}
+
 const SEVERITIES = new Set(["info", "maintenance", "degraded", "outage"])
 
 /** Per-isolate brake on token guessing: ten tries a minute per address.
  *  An isolate's memory is not global state, but a brute force rides one
  *  connection into one colo — and that path this closes. */
 const attempts = new Map<string, { n: number; until: number }>()
+
+/** A token that turned out to be right was never a guess. Without this the
+ *  operator writing a run of updates during an incident is cut off at the
+ *  tenth, which is exactly when the page is worth writing on. */
+export function forgive(request: Request): void {
+  attempts.delete(request.headers.get("cf-connecting-ip") ?? "?")
+}
 
 export function throttled(request: Request, now = Date.now()): boolean {
   if (attempts.size > 10_000) for (const [k, v] of attempts) if (v.until < now) attempts.delete(k)
@@ -239,12 +257,8 @@ export async function authorized(request: Request, token: string | undefined): P
 }
 
 export async function postNotice(request: Request, db: Db): Promise<Response> {
-  let body: { severity?: unknown; body?: unknown }
-  try {
-    body = (await request.json()) as { severity?: unknown; body?: unknown }
-  } catch {
-    return json({ error: "the body was not json" }, 400)
-  }
+  const body = await jsonBody<{ severity?: unknown; body?: unknown }>(request)
+  if (body === null) return json({ error: "the body was not a json object" }, 400)
   const severity = typeof body.severity === "string" ? body.severity : "info"
   const text = typeof body.body === "string" ? body.body.trim() : ""
   const langRaw = (body as { lang?: unknown }).lang
@@ -265,12 +279,8 @@ export async function postNotice(request: Request, db: Db): Promise<Response> {
 }
 
 export async function postResolve(request: Request, db: Db): Promise<Response> {
-  let body: { id?: unknown }
-  try {
-    body = (await request.json()) as { id?: unknown }
-  } catch {
-    return json({ error: "the body was not json" }, 400)
-  }
+  const body = await jsonBody<{ id?: unknown }>(request)
+  if (body === null) return json({ error: "the body was not a json object" }, 400)
   if (typeof body.id !== "number") return json({ error: "id must be a number" }, 400)
   const { resolveNotice } = await import("./store.ts")
   const done = await resolveNotice(db, body.id)

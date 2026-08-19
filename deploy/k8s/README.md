@@ -114,8 +114,15 @@ kubectl -n nabiz cp "$pod":/tmp/nabiz-backup.db ./nabiz-backup.db
   notice endpoint throttles by client address, and the address it can
   trust is the last hop the ingress wrote; everything left of that is
   whatever the client sent. Without the variable every request looks like
-  the same address, the proxy's; with a count larger than the number of
-  proxies actually in front, a client could pick its own.
+  the same address, the proxy's.
+- That trust has a precondition, which is what `networkpolicy.yaml` is
+  for: nothing in a request says whether it came through the ingress, so
+  a pod that can reach the Service directly could send any forwarded
+  address it liked and guess the token without ever meeting the ten-a-
+  minute brake. The policy allows only the ingress namespace. If your
+  cluster has no NetworkPolicy controller, or the ingress runs somewhere
+  other than `ingress-nginx`, fix the selector or unset `TRUST_PROXY` —
+  the throttle counting everyone as one address is the safe failure.
 - The root filesystem is read-only. `/data` is the PVC — the write-ahead
   log lives beside the database, in there — and `/tmp` is an emptyDir, for
   the scratch files SQLite writes elsewhere, a `VACUUM INTO` backup among

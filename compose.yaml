@@ -20,7 +20,9 @@ services:
       TELEGRAM_CHAT_ID: "${TELEGRAM_CHAT_ID:-}"
       ALERT_WEBHOOK_URL: "${ALERT_WEBHOOK_URL:-}"
       # The number of proxies in front that write x-forwarded-for, unset
-      # when nothing is. The notice endpoint counts guesses by address.
+      # when nothing is. The notice endpoint counts guesses by address, so
+      # set this only when the published port above is not also reachable
+      # without going through that proxy.
       # TRUST_PROXY: "1"
 
 volumes:
