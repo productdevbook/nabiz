@@ -1,8 +1,8 @@
 // nabiz on a machine somebody owns: the same Astro output, the same probe
 // round, the same schema — with an interval where the Workers cron was and
 // a file where D1 was.
-import { createReadStream } from "node:fs"
-import { readFile, stat } from "node:fs/promises"
+import { constants, createReadStream } from "node:fs"
+import { access, chmod, readFile, realpath, stat } from "node:fs/promises"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
 import { extname, join, normalize, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -64,20 +64,30 @@ async function serveStatic(req: IncomingMessage, res: ServerResponse): Promise<v
     res.writeHead(400).end()
     return
   }
-  const file = join(client, normalize(path))
+  const asked = join(client, normalize(path))
   // A path that climbs out of the client directory is not a typo to serve,
   // and neither is a sibling directory whose name begins with the same
   // letters.
-  if (!file.startsWith(client + sep)) {
+  if (!asked.startsWith(client + sep)) {
     res.writeHead(404).end()
     return
   }
   try {
+    // The built directory is what is served, not wherever a link in it
+    // points: the check above is on the name, this one is on the file.
+    const file = await realpath(asked)
+    if (!file.startsWith(client + sep)) {
+      res.writeHead(404).end()
+      return
+    }
     const found = await stat(file)
     if (!found.isFile()) {
       res.writeHead(404).end()
       return
     }
+    // Readable now, not merely there: a file that stats and then refuses
+    // to open would throw on a later tick, where nothing is catching.
+    await access(file, constants.R_OK)
     res.writeHead(200, {
       "content-type": TYPES[extname(file)] ?? "application/octet-stream",
       "content-length": found.size,
@@ -86,8 +96,17 @@ async function serveStatic(req: IncomingMessage, res: ServerResponse): Promise<v
         ? "public, max-age=31536000, immutable"
         : "public, max-age=3600",
     })
-    if (req.method === "HEAD") res.end()
-    else createReadStream(file).pipe(res)
+    if (req.method === "HEAD") {
+      res.end()
+      return
+    }
+    const stream = createReadStream(file)
+    // A read that fails mid-body cannot be answered — the status is
+    // already sent — but it must not take the process with it.
+    stream.on("error", () => res.destroy())
+    // A client that walks away mid-download leaves the file open otherwise.
+    res.on("close", () => stream.destroy())
+    stream.pipe(res)
   } catch {
     res.writeHead(404).end()
   }
@@ -106,15 +125,35 @@ function stampAddress(req: IncomingMessage): void {
 }
 
 async function main(): Promise<void> {
+  // The database holds the URLs of what is watched, which are often
+  // somebody's hostnames; on a volume another workload can mount, the
+  // default mode would hand them over. Set before the file is made, so
+  // the write-ahead log and the shared-memory file inherit it.
+  process.umask(0o077)
+
   // Additive and idempotent, the same file the Workers deployment runs.
   await db.exec(await readFile(schemaFile, "utf8"))
+  // The umask covers what this process creates; a file that arrived by
+  // some other route — a copy out of D1, a restored backup — is narrowed
+  // here. Somebody else's file is theirs to set.
+  await chmod(DB_PATH, 0o600).catch(() => {})
 
   const built = await stat(entryFile).catch(() => null)
   if (built === null) {
     console.error(`[nabiz] no built site at ${entryFile} — run \`bun run build:server\` first`)
     process.exit(1)
   }
-  const { handler } = (await import(`file://${entryFile}`)) as { handler: Handler }
+  let handler: Handler
+  try {
+    ;({ handler } = (await import(`file://${entryFile}`)) as { handler: Handler })
+  } catch (error) {
+    // Both targets build into the same directory, so the site that is
+    // there may be the Worker's, which imports things only Workers have.
+    console.error(
+      `[nabiz] ${entryFile} did not load — if the last build was \`bun run build\`, this dist is the Worker's; run \`bun run build:server\``,
+    )
+    throw error
+  }
 
   const server = createServer((req, res) => {
     stampAddress(req)
@@ -136,7 +175,9 @@ async function main(): Promise<void> {
   })
 
   let beating = false
-  let swept = Date.now()
+  // Zero, not now: the Workers cron prunes on the wall clock, and a
+  // process restarted more often than hourly would otherwise never sweep.
+  let swept = 0
   const beat = async (): Promise<void> => {
     // A round that outlives its interval must not have a second one on top
     // of it: the probes would double and the state machine would see the
@@ -145,8 +186,10 @@ async function main(): Promise<void> {
     beating = true
     try {
       const sweep = Date.now() - swept >= 3600_000
-      if (sweep) swept = Date.now()
       await tick(db, env, sweep)
+      // Only a round that finished counts as the hour's sweep; the one
+      // that failed on a full disk is the one that needed to prune.
+      if (sweep) swept = Date.now()
     } catch (error) {
       console.error("[nabiz] the probe round failed:", error)
     } finally {

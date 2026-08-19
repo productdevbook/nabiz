@@ -1,6 +1,6 @@
 {
   "name": "nabiz",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "private": true,
   "type": "module",
   "description": "A status page that keeps beating when your server does not — one Cloudflare Worker, or one container you own.",
@@ -9,7 +9,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "build:server": "NABIZ_TARGET=node astro build",
-    "start": "node src/server/index.ts",
+    "start": "bun src/server/index.ts",
     "preview": "astro preview",
     "deploy": "astro build && wrangler deploy -c dist/server/wrangler.json",
     "typecheck": "tsc --noEmit -p tsconfig.lib.json",

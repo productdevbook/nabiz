@@ -90,7 +90,8 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
-            # Scratch space: the write-ahead log lives beside the database.
+            # Scratch space for what SQLite writes outside the database
+            # directory; the write-ahead log is not that — it is in /data.
             - name: tmp
               mountPath: /tmp
       volumes:

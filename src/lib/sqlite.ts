@@ -98,7 +98,14 @@ export function openSqlite(path: string): SqliteDb {
         d.exec("COMMIT")
         return out
       } catch (error) {
-        d.exec("ROLLBACK")
+        // SQLite rolls back by itself on a full disk or an I/O error, and
+        // then ROLLBACK throws "no transaction is active" — which would
+        // walk out of here in place of the error that says what happened.
+        try {
+          d.exec("ROLLBACK")
+        } catch {
+          /* the transaction was already gone */
+        }
         throw error
       }
     },

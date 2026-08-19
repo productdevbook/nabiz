@@ -33,12 +33,17 @@ yet — before the container's first start, not after it:
 
 ```sh
 bunx wrangler d1 export nabiz --remote --output nabiz.sql
-docker run --rm -v nabiz:/data -v "$PWD":/in oven/bun:1.3.14-alpine bun -e '
+docker run --rm --user 1000:1000 -v nabiz:/data -v "$PWD":/in \
+  ghcr.io/productdevbook/nabiz:latest bun -e '
   import { Database } from "bun:sqlite"
   import { readFileSync } from "node:fs"
   new Database("/data/nabiz.db").exec(readFileSync("/in/nabiz.sql", "utf8"))
 '
 ```
+
+The image and the user are nabiz's own on purpose: a volume first touched
+by a root process is a volume the container cannot write, and the crash
+that follows says only "attempt to write a readonly database".
 
 The container applies `schema.sql` on every start, which is additive and
 does nothing to tables the export already made.
