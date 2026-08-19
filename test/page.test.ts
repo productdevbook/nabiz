@@ -35,8 +35,8 @@ const BODY = `
  *  no DOM in this project, and the runner brings the real one. */
 interface El {
   value: string
-  disabled: boolean
   textContent: string | null
+  disabled: boolean
   tabIndex: number
   click: () => void
   remove: () => void
@@ -48,6 +48,7 @@ interface El {
 interface Doc {
   documentElement: { lang: string }
   body: { innerHTML: string }
+  createElement: (tag: string) => El
   getElementById: (id: string) => El | null
   querySelector: (sel: string) => El | null
   querySelectorAll: (sel: string) => Iterable<El>
@@ -83,7 +84,52 @@ function open(
     }
     return Promise.resolve({ ok: true, text: () => Promise.resolve("<html><body></body></html>") })
   }
-  ;(window as unknown as { eval: (s: string) => void }).eval(LABELS + script)
+  // Called rather than evaluated: window.eval is not in every runtime and
+  // an injected <script> depends on the DOM library running it. This hands
+  // the script the page's own globals and nothing else — including a
+  // setInterval that never fires, so the refresh does not outlive the test.
+  const run = new Function(
+    "window",
+    "document",
+    "location",
+    "localStorage",
+    "sessionStorage",
+    "matchMedia",
+    "fetch",
+    "addEventListener",
+    "setInterval",
+    "setTimeout",
+    "DOMParser",
+    "resolveLabel",
+    "failedLabel",
+    "throttledLabel",
+    "rejectedLabel",
+    "offlineLabel",
+    script,
+  )
+  const w = window as unknown as Record<string, unknown>
+  run(
+    window,
+    document,
+    w.location,
+    w.localStorage,
+    w.sessionStorage,
+    (q: string) => (w.matchMedia as (q: string) => unknown)(q),
+    w.fetch,
+    (...args: unknown[]) => (w.addEventListener as (...a: unknown[]) => unknown)(...args),
+    () => 0,
+    (fn: () => void, ms: number) => setTimeout(fn, ms),
+    w.DOMParser,
+    "R",
+    "F",
+    "T",
+    "J",
+    "O",
+  )
+  // If it did not run, every test below would pass by testing nothing.
+  if (document.getElementById("theme")?.getAttribute("aria-pressed") === null)
+    throw new Error("the page script did not run")
+
   return {
     window,
     document,
