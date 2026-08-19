@@ -413,6 +413,9 @@
     filter: brightness(1.12);
   }
   @media (prefers-reduced-motion: reduce) {
+    dialog[open] {
+      animation: none;
+    }
     .bars i,
     .bars i:hover {
       transition: none;
@@ -538,8 +541,8 @@
     transition: all 0.13s;
   }
   .seg button.on {
-    @apply text-white;
-    background: var(--seg, var(--fg));
+    color: var(--seg, var(--fg));
+    background: color-mix(in srgb, var(--seg, var(--fg)) 14%, var(--panel));
     border-color: var(--seg, var(--fg));
   }
   .seg button.on.info,
@@ -607,6 +610,30 @@
 @keyframes trace {
   to {
     stroke-dashoffset: 0;
+  }
+}
+
+/* A live region has to be in the page to be read from it, and out of the
+   way to belong on it. */
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The page cross-fades itself every twenty-five seconds; somebody who
+   asked for less motion did not ask for that. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
   }
 }
 

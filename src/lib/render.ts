@@ -31,6 +31,9 @@ export function when(at: number): string {
   return new Date(at).toISOString().replace("T", " ").slice(0, 16) + " UTC"
 }
 
+/** Ninety days as ninety marks. A reader is not given them one by one —
+ *  the strip is hidden from the accessibility tree, and the same ninety
+ *  days are already spoken in the figure beside it. */
 export function bars(days: DayRow[], lang: Lang): string {
   const byDay = new Map(days.map((d) => [d.day, d]))
   const cells: string[] = []
@@ -121,7 +124,7 @@ export function serviceRow(r: Row, lang: Lang): string {
     <div class="who"><h3>${esc(r.name)}</h3><span class="state ${dot}">${word}</span>${tele}</div>
     ${figure}
   </header>
-  <div class="bars">${bars(r.days, lang)}</div>
+  <div class="bars" aria-hidden="true">${bars(r.days, lang)}</div>
   <footer><span>${t(lang, "window_ago").replace("{n}", String(WINDOW))}</span><span>${t(lang, "today")}</span></footer>
 </section>`
 }
