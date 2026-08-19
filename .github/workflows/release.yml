@@ -31,6 +31,29 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
+      # Built for this runner first and asked the two questions it
+      # promises to answer: a tag can be put on any commit, and a release
+      # nobody started is a release nobody checked.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: nabiz:smoke
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: it answers on the port it says
+        run: |
+          docker run -d --name nabiz-smoke -p 8080:8080 nabiz:smoke
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/health || true)
+            [ "$code" = "204" ] && break
+            sleep 1
+          done
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/)" = "200"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/health)" = "204"
+          docker logs nabiz-smoke
+          docker rm -f nabiz-smoke
+
       - uses: docker/build-push-action@v6
         with:
           context: .
