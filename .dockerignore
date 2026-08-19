@@ -1,0 +1,11 @@
+.git
+.github
+.astro
+.wrangler
+dist
+node_modules
+docs
+test
+deploy
+*.md
+.dev.vars

@@ -1,0 +1,27 @@
+# docker compose up -d — one service, one volume, no configuration file:
+# monitors are rows in the database, secrets are the environment.
+services:
+  nabiz:
+    image: ghcr.io/productdevbook/nabiz:latest
+    # Or build it here instead: build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - nabiz:/data
+    environment:
+      NABIZ_TITLE: "nabiz"
+      # en, tr, de, es or fr
+      NABIZ_LANG: "en"
+      # Without this every write is refused, which is a safe way to run.
+      ADMIN_TOKEN: "${ADMIN_TOKEN:-}"
+      # Optional, both halves needed for Telegram:
+      TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:-}"
+      TELEGRAM_CHAT_ID: "${TELEGRAM_CHAT_ID:-}"
+      ALERT_WEBHOOK_URL: "${ALERT_WEBHOOK_URL:-}"
+      # Set this only behind a proxy that writes x-forwarded-for; the
+      # notice endpoint counts guesses by address.
+      # TRUST_PROXY: "1"
+
+volumes:
+  nabiz:
