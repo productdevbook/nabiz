@@ -19,8 +19,8 @@ services:
       TELEGRAM_BOT_TOKEN: "${TELEGRAM_BOT_TOKEN:-}"
       TELEGRAM_CHAT_ID: "${TELEGRAM_CHAT_ID:-}"
       ALERT_WEBHOOK_URL: "${ALERT_WEBHOOK_URL:-}"
-      # Set this only behind a proxy that writes x-forwarded-for; the
-      # notice endpoint counts guesses by address.
+      # The number of proxies in front that write x-forwarded-for, unset
+      # when nothing is. The notice endpoint counts guesses by address.
       # TRUST_PROXY: "1"
 
 volumes:

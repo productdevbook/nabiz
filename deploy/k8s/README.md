@@ -110,9 +110,12 @@ kubectl -n nabiz cp "$pod":/tmp/nabiz-backup.db ./nabiz-backup.db
 
 ## Notes
 
-- `TRUST_PROXY` is set because the pod sits behind an ingress: the notice
-  endpoint throttles by client address, and without it every request looks
-  like the same address — the proxy's.
+- `TRUST_PROXY` is `1` because one proxy sits in front — the ingress. The
+  notice endpoint throttles by client address, and the address it can
+  trust is the last hop the ingress wrote; everything left of that is
+  whatever the client sent. Without the variable every request looks like
+  the same address, the proxy's; with a count larger than the number of
+  proxies actually in front, a client could pick its own.
 - The root filesystem is read-only. `/data` is the PVC — the write-ahead
   log lives beside the database, in there — and `/tmp` is an emptyDir, for
   the scratch files SQLite writes elsewhere, a `VACUUM INTO` backup among

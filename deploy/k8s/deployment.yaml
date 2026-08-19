@@ -47,9 +47,9 @@ spec:
               value: "en"
             - name: NABIZ_INTERVAL_MS
               value: "60000"
-            # Behind the ingress every request arrives from the proxy; the
-            # notice endpoint throttles by client address and would otherwise
-            # throttle everyone as one.
+            # One proxy in front: the ingress. The notice endpoint throttles
+            # by client address, which is the last entry the ingress wrote —
+            # raise this only if another proxy sits in front of that one.
             - name: TRUST_PROXY
               value: "1"
           envFrom:

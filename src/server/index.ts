@@ -8,6 +8,7 @@ import { extname, join, normalize, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { tick } from "../lib/tick.ts"
+import { clientAddress, trustedHops } from "./address.ts"
 import { db, DB_PATH, env } from "./env.ts"
 
 type Next = () => void
@@ -25,7 +26,7 @@ const entryFile = join(dist, "server", "entry.mjs")
 const port = Number(process.env.PORT ?? 8080)
 const host = process.env.HOST ?? "0.0.0.0"
 const interval = Number(process.env.NABIZ_INTERVAL_MS ?? 60_000)
-const trustProxy = (process.env.TRUST_PROXY ?? "") !== ""
+const hops = trustedHops(process.env.TRUST_PROXY)
 
 const TYPES: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
@@ -75,11 +76,12 @@ async function serveStatic(req: IncomingMessage, res: ServerResponse): Promise<v
  *  a header nobody outside Cloudflare can set. Here the header is written
  *  rather than read, so a forged one counts for nothing. */
 function stampAddress(req: IncomingMessage): void {
-  const forwarded = String(req.headers["x-forwarded-for"] ?? "")
-    .split(",")[0]
-    ?.trim()
-  const address = trustProxy && forwarded ? forwarded : (req.socket.remoteAddress ?? "?")
-  req.headers["cf-connecting-ip"] = address
+  const forwarded = req.headers["x-forwarded-for"]
+  req.headers["cf-connecting-ip"] = clientAddress(
+    Array.isArray(forwarded) ? forwarded.join(",") : forwarded,
+    req.socket.remoteAddress,
+    hops,
+  )
 }
 
 async function main(): Promise<void> {

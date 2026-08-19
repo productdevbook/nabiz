@@ -119,9 +119,11 @@ On Cloudflare these are `[vars]` in `wrangler.toml` and secrets set with
 
 The server target reads a few more, all optional: `PORT` (8080), `HOST`
 (0.0.0.0), `NABIZ_DB` (`/data/nabiz.db`), `NABIZ_INTERVAL_MS` (60000) and
-`TRUST_PROXY` — set that last one only behind a proxy that writes
-`x-forwarded-for`, because the notice endpoint counts guesses by address
-and would otherwise count everyone as the proxy.
+`TRUST_PROXY` — the number of proxies in front that write
+`x-forwarded-for` (`1` for the usual one). The notice endpoint counts
+guesses at the token by address; unset, every request behind a proxy
+looks like the proxy, and set too high it would believe an address the
+client typed. Leave it unset when nothing is in front.
 
 ## Notices
 
