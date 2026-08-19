@@ -4,7 +4,7 @@
 import { createReadStream } from "node:fs"
 import { readFile, stat } from "node:fs/promises"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
-import { extname, join, normalize, resolve } from "node:path"
+import { extname, join, normalize, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { tick } from "../lib/tick.ts"
@@ -23,9 +23,16 @@ const schemaFile = process.env.NABIZ_SCHEMA ?? join(root, "schema.sql")
 // find the client assets, so the "server" segment stays either way.
 const entryFile = join(dist, "server", "entry.mjs")
 
-const port = Number(process.env.PORT ?? 8080)
+// A number that is not one falls back rather than through: Node reads a
+// NaN interval as one millisecond, which would probe in a tight loop.
+const positive = (value: string | undefined, fallback: number): number => {
+  const n = Number(value)
+  return Number.isFinite(n) && n > 0 ? n : fallback
+}
+
+const port = positive(process.env.PORT, 8080)
 const host = process.env.HOST ?? "0.0.0.0"
-const interval = Number(process.env.NABIZ_INTERVAL_MS ?? 60_000)
+const interval = positive(process.env.NABIZ_INTERVAL_MS, 60_000)
 const hops = trustedHops(process.env.TRUST_PROXY)
 
 const TYPES: Record<string, string> = {
@@ -44,10 +51,24 @@ const TYPES: Record<string, string> = {
 
 /** Whatever Astro did not claim is a file it built, or nothing at all. */
 async function serveStatic(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const path = new URL(req.url ?? "/", "http://host").pathname
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    res.writeHead(404).end()
+    return
+  }
+  let path: string
+  try {
+    // Decoded before it is normalised, or "%2e%2e%2f" is a directory name
+    // to look for rather than the climb it is.
+    path = decodeURIComponent(new URL(req.url ?? "/", "http://host").pathname)
+  } catch {
+    res.writeHead(400).end()
+    return
+  }
   const file = join(client, normalize(path))
-  // A path that climbs out of the client directory is not a typo to serve.
-  if (!file.startsWith(client) || (req.method !== "GET" && req.method !== "HEAD")) {
+  // A path that climbs out of the client directory is not a typo to serve,
+  // and neither is a sibling directory whose name begins with the same
+  // letters.
+  if (!file.startsWith(client + sep)) {
     res.writeHead(404).end()
     return
   }
@@ -97,9 +118,21 @@ async function main(): Promise<void> {
 
   const server = createServer((req, res) => {
     stampAddress(req)
-    handler(req, res, () => {
-      void serveStatic(req, res)
-    })
+    try {
+      handler(req, res, () => {
+        void serveStatic(req, res)
+      })
+    } catch (error) {
+      // A page that throws is a page that is down; the process is not.
+      console.error("[nabiz] the request failed:", error)
+      if (!res.headersSent) res.writeHead(500)
+      res.end()
+    }
+  })
+
+  server.on("error", (error) => {
+    console.error(`[nabiz] cannot listen on ${host}:${port} —`, error.message)
+    process.exit(1)
   })
 
   let beating = false
