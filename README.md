@@ -32,6 +32,19 @@ hardware it is one container with an interval and a SQLite file — same
 source, same schema. *nabız* is Turkish for "pulse"; the ASCII spelling
 `nabiz` is used throughout.
 
+## Documentation
+
+| | |
+|---|---|
+| [Cloudflare](docs/cloudflare.md) | deploying the Worker, custom hostname, limits |
+| [Self-hosting](docs/self-hosting.md) | Docker, compose, from a checkout |
+| [Kubernetes](deploy/k8s/README.md) | manifests, one replica, seeding in-cluster |
+| [Monitors](docs/monitors.md) | the rows that say what is watched |
+| [Configuration](docs/configuration.md) | every variable, on both runtimes |
+| [API](docs/api.md) | JSON, RSS, badge, notices, machine access |
+| [Upgrading](docs/UPGRADING.md) | schema additions, moving between runtimes |
+| [Installing with an agent](docs/agent-install.md) | a runbook: commands, checks, and what each error means |
+
 ## Features
 
 - One probe per monitor per minute: method, expected status, timeout,
@@ -68,19 +81,6 @@ bun run deploy
 
 Either way the page comes up empty and working; monitors are rows you add
 next — see [Monitors](docs/monitors.md).
-
-## Documentation
-
-| | |
-|---|---|
-| [Cloudflare](docs/cloudflare.md) | deploying the Worker, custom hostname, limits |
-| [Self-hosting](docs/self-hosting.md) | Docker, compose, from a checkout |
-| [Kubernetes](deploy/k8s/README.md) | manifests, one replica, seeding in-cluster |
-| [Monitors](docs/monitors.md) | the rows that say what is watched |
-| [Configuration](docs/configuration.md) | every variable, on both runtimes |
-| [API](docs/api.md) | JSON, RSS, badge, notices, machine access |
-| [Upgrading](docs/UPGRADING.md) | schema additions, moving between runtimes |
-| [Installing with an agent](docs/agent-install.md) | a runbook: commands, checks, and what each error means |
 
 ## Development
 
