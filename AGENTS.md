@@ -26,6 +26,8 @@ the cron was, SQLite where D1 was. `src/server/index.ts` is that entry.
     Dockerfile           the container: build stage, then the built site
     compose.yaml         one service, one volume
     deploy/k8s/          plain manifests, one replica by design
+    docs/                one page per subject; the README is a landing
+                         page and links to them rather than growing
     test/                bun tests against a fake D1 and a real SQLite
 
 ## Commands
