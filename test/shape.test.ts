@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test"
 
 import type { Monitor } from "../src/lib/probe.ts"
 import type { Row } from "../src/lib/shape.ts"
-import { eventsView, overall, rows, uptimeOf } from "../src/lib/shape.ts"
-import type { PageData } from "../src/lib/store.ts"
+import { eventsView, overall, rows, UNNAMED_GROUP, uptimeOf } from "../src/lib/shape.ts"
+import type { DayRow, PageData } from "../src/lib/store.ts"
 
 let nextId = 0
 function monitor(over: Partial<Monitor> = {}): Monitor {
@@ -237,5 +237,104 @@ describe("uptime arithmetic", () => {
         { monitor_id: 1, day: "2026-01-02", total: 100, ok: 100, ms_sum: 0 },
       ]),
     ).toBeCloseTo(99.5)
+  })
+})
+
+const withDays = (monitors: Monitor[], days: [number, DayRow[]][]): PageData => ({
+  ...data(monitors, []),
+  days: new Map(days),
+})
+
+const dayRow = (on: string, ok: number, total: number, ms_sum = 0): DayRow => ({
+  monitor_id: 0,
+  day: on,
+  total,
+  ok,
+  ms_sum,
+})
+
+describe("a row that says it is grouped is never published by name", () => {
+  test("a group nobody named still does not name its members", () => {
+    const a = monitor({ grouped: 1, group_name: null, name: "secret-a" })
+    const b = monitor({ grouped: 1, group_name: "  ", name: "secret-b" })
+    const list = rows(data([a, b], [[a.id, false]]))
+    expect(list.map((r) => r.name)).toEqual([UNNAMED_GROUP])
+    expect(JSON.stringify(list)).not.toContain("secret")
+  })
+
+  test("neither do its events", () => {
+    const a = monitor({ grouped: 1, group_name: null, name: "secret-a" })
+    const view = eventsView([a], [{ monitor_id: a.id, at: 5, ok: 0 }])
+    expect(view.map((e) => e.label)).toEqual([UNNAMED_GROUP])
+  })
+
+  test("one host going down is one line, not one line per customer", () => {
+    // A round writes every member's event at the same millisecond; five
+    // identical lines are a customer count read off the page.
+    const members = [1, 2, 3, 4, 5].map(() =>
+      monitor({ grouped: 1, group_name: "Hosted sites", name: "secret" }),
+    )
+    const events = members.map((m) => ({ monitor_id: m.id, at: 1234, ok: 0 }))
+    const view = eventsView(members, events)
+    expect(view).toEqual([{ label: "Hosted sites", at: 1234, ok: false }])
+  })
+
+  test("two rounds are still two lines", () => {
+    const members = [1, 2].map(() => monitor({ grouped: 1, group_name: "Hosted sites" }))
+    const view = eventsView(members, [
+      { monitor_id: members[0]?.id ?? 0, at: 20, ok: 0 },
+      { monitor_id: members[1]?.id ?? 0, at: 20, ok: 0 },
+      { monitor_id: members[0]?.id ?? 0, at: 10, ok: 1 },
+    ])
+    expect(view.map((e) => e.at)).toEqual([20, 10])
+  })
+})
+
+describe("a group's ninety days are the group's", () => {
+  test("a day most of the group did not exist for is not the group's day", () => {
+    // One customer hosted for a year, four onboarded last month: the old
+    // customer's bad day is not four other people's history.
+    const old = monitor({ grouped: 1, group_name: "Hosted sites" })
+    const rest = [1, 2, 3, 4].map(() => monitor({ grouped: 1, group_name: "Hosted sites" }))
+    const list = rows(
+      withDays(
+        [old, ...rest],
+        [
+          [old.id, [dayRow("2026-06-20", 0, 1000), dayRow("2026-08-18", 1000, 1000)]],
+          ...rest.map((m): [number, DayRow[]] => [m.id, [dayRow("2026-08-18", 1000, 1000)]]),
+        ],
+      ),
+    )
+    expect(list[0]?.days.map((d) => d.day)).toEqual(["2026-08-18"])
+    expect(uptimeOf(list[0]?.days ?? [])).toBe(100)
+  })
+
+  test("the day it publishes is a real member's, counts and timings and all", () => {
+    const members = [1, 2, 3].map(() => monitor({ grouped: 1, group_name: "Hosted sites" }))
+    const list = rows(
+      withDays(
+        [...members],
+        [
+          [members[0]?.id ?? 0, [dayRow("2026-08-18", 1440, 1440, 172_800)]],
+          [members[1]?.id ?? 0, [dayRow("2026-08-18", 1430, 1440, 180_000)]],
+          [members[2]?.id ?? 0, [dayRow("2026-08-18", 1440, 1440, 187_200)]],
+        ],
+      ),
+    )
+    const published = list[0]?.days[0]
+    // Not a thousand imagined checks with no time attached: history.json
+    // publishes these as if a probe had produced them.
+    expect(published?.total).toBe(1440)
+    expect(published?.ms_sum).toBeGreaterThan(0)
+  })
+})
+
+describe("position places a group as well as a monitor", () => {
+  test("a group whose members come first is not printed last", () => {
+    const members = [1, 2].map(() => monitor({ grouped: 1, group_name: "Hosted sites" }))
+    const api = monitor({ name: "API" })
+    // rows() takes the order the store gives it, which is by position.
+    const list = rows(data([...members, api], []))
+    expect(list.map((r) => r.name)).toEqual(["Hosted sites", "API"])
   })
 })

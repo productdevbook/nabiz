@@ -22,6 +22,19 @@ export interface Row {
  *  three of five is the machine's, and the page should say which. */
 export const GROUP_OUTAGE = 0.5
 
+/** What a group with no name of its own is called. A row that says it is
+ *  grouped is never published by name, so a missing group name cannot be
+ *  allowed to fall back to the monitor's — that is the one leak the column
+ *  exists to prevent. */
+export const UNNAMED_GROUP = "—"
+
+/** The group a monitor speaks under, or null if it speaks for itself. */
+export function groupOf(m: Monitor): string | null {
+  if (!m.grouped) return null
+  const named = (m.group_name ?? "").trim()
+  return named === "" ? UNNAMED_GROUP : named
+}
+
 /** A group's day, as the group experienced it: the median member's.
  *
  *  Adding the members up would let one site's bad afternoon drag the whole
@@ -34,68 +47,80 @@ export const GROUP_OUTAGE = 0.5
  *  ninety days. That history is the group's, not any member's, and the
  *  member's own is not this page's to publish. */
 function medianDays(lists: DayRow[][]): DayRow[] {
-  const byDay = new Map<string, { ok: number; total: number }[]>()
+  const size = lists.length
+  const byDay = new Map<string, DayRow[]>()
   for (const list of lists)
     for (const d of list) {
       if (d.total === 0) continue
       const seen = byDay.get(d.day) ?? []
-      seen.push({ ok: d.ok, total: d.total })
+      seen.push(d)
       byDay.set(d.day, seen)
     }
 
   const out: DayRow[] = []
-  for (const [day, members] of byDay) {
-    const shares = members.map((m) => m.ok / m.total).toSorted((a, b) => a - b)
-    const middle =
-      shares.length % 2 === 1
-        ? (shares[(shares.length - 1) / 2] as number)
-        : ((shares[shares.length / 2 - 1] as number) + (shares[shares.length / 2] as number)) / 2
-    // Kept on one scale — a thousand imagined checks — so the bars and the
-    // percentage read exactly as they do for a single monitor.
-    const total = 1000
-    out.push({ monitor_id: 0, day, total, ok: Math.round(middle * total), ms_sum: 0 })
+  for (const [, members] of byDay) {
+    // A day most of the group did not exist for has no median to report.
+    // Without this, the first customer's bad afternoon is published as the
+    // whole group's the moment the others are onboarded later.
+    if (members.length * 2 < size) continue
+    const ranked = members.toSorted((a, b) => a.ok / a.total - b.ok / b.total)
+    // The median member's own day, counts and timings and all: a made-up
+    // denominator would be a number no probe produced, and history.json
+    // would publish it as if one had.
+    const middle = ranked[(ranked.length - 1) >> 1] as DayRow
+    out.push({ ...middle, monitor_id: 0 })
   }
   return out.toSorted((a, b) => (a.day < b.day ? -1 : 1))
 }
 
 export function rows(data: PageData): Row[] {
-  const out: Row[] = []
-  const grouped = new Map<string, Monitor[]>()
+  // Monitors arrive ordered by position; a group takes the place of its
+  // earliest member, which is the only way an operator can put one
+  // anywhere but last.
+  const out: { at: number; row: Row }[] = []
+  const grouped = new Map<string, { at: number; members: Monitor[] }>()
 
-  for (const m of data.monitors) {
-    if (m.grouped && m.group_name) {
-      const list = grouped.get(m.group_name) ?? []
-      list.push(m)
-      grouped.set(m.group_name, list)
-      continue
+  data.monitors.forEach((m, at) => {
+    const group = groupOf(m)
+    if (group !== null) {
+      const held = grouped.get(group) ?? { at, members: [] }
+      held.members.push(m)
+      grouped.set(group, held)
+      return
     }
     const s = data.states.get(m.id)
     out.push({
-      name: m.name,
-      ok: s ? s.ok : null,
-      partial: false,
-      days: data.days.get(m.id) ?? [],
-      latency: data.latency.get(m.id) ?? null,
-      spark: data.spark.get(m.id) ?? null,
+      at,
+      row: {
+        name: m.name,
+        ok: s ? s.ok : null,
+        partial: false,
+        days: data.days.get(m.id) ?? [],
+        latency: data.latency.get(m.id) ?? null,
+        spark: data.spark.get(m.id) ?? null,
+      },
     })
-  }
+  })
 
-  for (const [name, members] of grouped) {
+  for (const [name, { at, members }] of grouped) {
     const up = members.filter((m) => data.states.get(m.id)?.ok).length
     const known = members.filter((m) => data.states.get(m.id) !== undefined).length
     const downs = known - up
     out.push({
-      name,
-      // Down only once enough of the group is unreachable to be the
-      // machine's problem rather than one site's.
-      ok: known === 0 ? null : downs === 0,
-      partial: known > 0 && downs > 0 && downs / known < GROUP_OUTAGE,
-      days: medianDays(members.map((m) => data.days.get(m.id) ?? [])),
-      latency: null,
-      spark: null,
+      at,
+      row: {
+        name,
+        // Down only once enough of the group is unreachable to be the
+        // machine's problem rather than one site's.
+        ok: known === 0 ? null : downs === 0,
+        partial: known > 0 && downs > 0 && downs / known < GROUP_OUTAGE,
+        days: medianDays(members.map((m) => data.days.get(m.id) ?? [])),
+        latency: null,
+        spark: null,
+      },
     })
   }
-  return out
+  return out.toSorted((a, b) => a.at - b.at).map((e) => e.row)
 }
 
 /** What the whole page is, in one word.
@@ -141,11 +166,21 @@ export interface EventView {
 export function eventsView(monitors: Monitor[], events: EventRow[]): EventView[] {
   const byId = new Map(monitors.map((m) => [m.id, m]))
   const out: EventView[] = []
+  // A round writes every member's event at the same millisecond, so a
+  // shared host going down would print the group's line once per member —
+  // and counting those lines is counting the customers.
+  const said = new Set<string>()
   for (const e of events) {
     const m = byId.get(e.monitor_id)
     if (m === undefined) continue
+    const group = groupOf(m)
+    if (group !== null) {
+      const once = `${group}\u0000${e.at}\u0000${e.ok}`
+      if (said.has(once)) continue
+      said.add(once)
+    }
     out.push({
-      label: m.grouped && m.group_name ? m.group_name : m.name,
+      label: group ?? m.name,
       at: e.at,
       ok: Boolean(e.ok),
     })
