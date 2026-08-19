@@ -33,6 +33,12 @@ CREATE TABLE IF NOT EXISTS checks (
   ms INTEGER
 );
 CREATE INDEX IF NOT EXISTS checks_by_monitor ON checks (monitor_id, at);
+-- Every read of this table asks for a window of time and nothing else: the
+-- last hour for the latency figure, the last day for the waveform, older
+-- than two days for the sweep. Leading on `at` is what lets those seek
+-- instead of scan, and carrying the other three columns is what keeps the
+-- seek from going back to the table for them.
+CREATE INDEX IF NOT EXISTS checks_by_time ON checks (at, ok, monitor_id, ms);
 
 -- One row per monitor per UTC day, updated in place on every probe. Ninety
 -- of these per monitor draw the bars.
@@ -44,6 +50,9 @@ CREATE TABLE IF NOT EXISTS days (
   ms_sum INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (monitor_id, day)
 );
+-- The page asks for the last ninety days; the primary key is monitor-first
+-- and cannot answer that without reading every row of every year kept.
+CREATE INDEX IF NOT EXISTS days_by_day ON days (day);
 
 -- The last known state, so an alert fires on the change and not on every
 -- minute of an outage.

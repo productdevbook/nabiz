@@ -16,7 +16,14 @@ bunx wrangler d1 execute nabiz --remote --command "CREATE TABLE notices (id INTE
 
 # v1.1 → v2.0
 bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE notices ADD COLUMN lang TEXT"
+
+# v3.0 → v3.1 — two indexes; nothing is rewritten, nothing is lost
+bunx wrangler d1 execute nabiz --remote --command "CREATE INDEX IF NOT EXISTS checks_by_time ON checks (at, ok, monitor_id, ms)"
+bunx wrangler d1 execute nabiz --remote --command "CREATE INDEX IF NOT EXISTS days_by_day ON days (day)"
 ```
+
+A self-hosted deployment needs none of these by hand: `schema.sql` is
+applied on every start and each statement is `IF NOT EXISTS`.
 
 v2.0 is the Astro rebuild: same worker, same schema plus the one column,
 but deploying now runs `astro build` first — `bun run deploy` does both.
