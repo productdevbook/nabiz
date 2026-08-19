@@ -31,6 +31,16 @@ describe("five languages, none of them half-finished", () => {
     expect(wrong).toEqual([])
   })
 
+  // The page interpolates these into markup, and one of the places is an
+  // attribute. Nothing needs escaping today; this is what keeps it that way
+  // when somebody writes a translation with a quote in it.
+  test("no translation carries a character that markup would read", () => {
+    const carrying: string[] = []
+    for (const lang of LANGS)
+      for (const key of KEYS) if (/[<>&"]/.test(t(lang, key))) carrying.push(`${lang}.${key}`)
+    expect(carrying).toEqual([])
+  })
+
   test("an unknown language falls back to english, not to a crash", () => {
     expect(langOf("xx")).toBe("en")
     expect(langOf(undefined)).toBe("en")
