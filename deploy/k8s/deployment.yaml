@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nabiz
+  namespace: nabiz
+  labels:
+    app.kubernetes.io/name: nabiz
+spec:
+  replicas: 1
+  strategy:
+    # One SQLite file, one writer: a rolling update would run the old and the
+    # new pod against the same volume at once.
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nabiz
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: nabiz
+    spec:
+      # The process finishes in-flight requests and stops the probe loop in
+      # about five seconds.
+      terminationGracePeriodSeconds: 15
+      securityContext:
+        runAsNonRoot: true
+        # uid 1000 is the image's `bun` user, which owns /data in the image.
+        runAsUser: 1000
+        runAsGroup: 1000
+        # Makes the mounted volume writable by that user.
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nabiz
+          # Pin a released tag here in production; :latest moves under you.
+          image: ghcr.io/productdevbook/nabiz:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: NABIZ_TITLE
+              value: "Status"
+            - name: NABIZ_LANG
+              value: "en"
+            - name: NABIZ_INTERVAL_MS
+              value: "60000"
+            # Behind the ingress every request arrives from the proxy; the
+            # notice endpoint throttles by client address and would otherwise
+            # throttle everyone as one.
+            - name: TRUST_PROXY
+              value: "1"
+          envFrom:
+            # ADMIN_TOKEN, TELEGRAM_*, ALERT_WEBHOOK_URL — the keys land as
+            # environment variables under their own names.
+            - secretRef:
+                name: nabiz
+                optional: true
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 25m
+              memory: 96Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            # Scratch space: the write-ahead log lives beside the database.
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: nabiz-data
+        - name: tmp
+          emptyDir: {}

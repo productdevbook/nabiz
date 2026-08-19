@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nabiz
+  namespace: nabiz
+  labels:
+    app.kubernetes.io/name: nabiz
+  # annotations:
+  #   cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - status.example.com
+      secretName: nabiz-tls
+  rules:
+    - host: status.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nabiz
+                port:
+                  name: http
