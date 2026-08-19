@@ -152,59 +152,74 @@ ${items}
   })
 }
 
-/** What an agent needs to know, at the address agents look. */
+/** What an agent needs to know, at the address agents look — in the shape
+ *  llmstxt.org asks for: a heading, a summary it can read first, and lists
+ *  whose entries are links rather than sentences about links. */
 export function llms(origin: string, title: string): Response {
   const text = `# ${title}
 
-This is a status page, run by nabiz (https://github.com/productdevbook/nabiz).
-It probes the services listed on it every minute and keeps ninety days of
-history. A monitor marked as a group stands for several hosts that are
-served here but named elsewhere; neither their names nor their number is
-published.
+> A status page run by nabiz (https://github.com/productdevbook/nabiz). The
+> services listed on it are probed once a minute and ninety days of history
+> are kept. Everything here is public, read-only, CORS-open and uncached:
+> what you get is what is true at the moment you asked.
+
+A monitor marked as a group stands for several hosts that are served here
+but named elsewhere; neither their names nor their number is published.
 
 ## Endpoints
 
-- ${origin}/                 the page, HTML
-- ${origin}/api/status.json  current state, per-monitor uptime and latency, recent events
-- ${origin}/api/history.json ninety days of daily totals per monitor
-- ${origin}/badge.svg        the overall state as a badge
-- ${origin}/feed.xml         state changes and notices as RSS
-- ${origin}/api/notices.json operator-written notices, markdown and rendered
-- ${origin}/health           204 when the status page itself is alive
+- [The page](${origin}/): HTML, and the JSON below to an Accept header that asks for it
+- [status.json](${origin}/api/status.json): current state, per-monitor uptime and latency, recent events
+- [history.json](${origin}/api/history.json): ninety days of daily totals per monitor
+- [notices.json](${origin}/api/notices.json): operator-written notices, markdown and rendered
+- [badge.svg](${origin}/badge.svg): the overall state as a badge
+- [feed.xml](${origin}/feed.xml): state changes and notices as RSS
+- [health](${origin}/health): 204 when the status page itself is alive, with no database behind it
 
-Every read endpoint takes ?lang= (en, tr, de, es, fr): the page and the
-feed translate their words, and notices written for one language are
-served only to it — a notice with no language speaks to everyone.
+## Asking cheaply
 
-## For machines
+HEAD ${origin}/ answers with an "x-status" response header that says up,
+sites, degraded or down, and no body. ${origin}/api/status.json carries
+the same header; no other endpoint does.
 
-The page answers to the shape of the request, so the cheapest question
-works:
+GET ${origin}/ with "Accept: application/json" (and no text/html) returns
+the status.json body instead of HTML. A Link header on the HTML page
+points to this file, the JSON and the RSS feed, and the HTML head carries
+the same links as <link rel="alternate">.
 
-- HEAD ${origin}/ — the "x-status" response header says up, sites,
-  degraded or down; no body needed. ${origin}/api/status.json carries it too.
-- GET ${origin}/ with "Accept: application/json" (and no text/html)
-  returns the status.json body instead of HTML.
-- A Link header on / points to this file, the JSON and the RSS feed;
-  the HTML head carries the same links as <link rel="alternate">.
-- robots.txt allows everyone; there is nothing here worth hiding.
-
-All JSON is read-only, CORS-open, and uncached: what you get is what is
-true at the moment you asked. Writing exists too, for the operator:
-POST /api/notice with Authorization: Bearer <token> and a JSON body of
-{"body": "markdown", "severity": "info|maintenance|degraded|outage",
-"lang": "all|en|tr|de|es|fr"}; POST /api/notice/resolve with {"id": n}.
+The page, the feed and notices.json take ?lang= (en, tr, de, es, fr):
+they translate their words, and a notice written for one language is
+served only to it. The other endpoints carry no words to translate.
 
 ## Reading status.json
 
 "status" is one of four for the whole page: "up", "sites" when only some
 of the hosted sites are unreachable and everything else is serving,
-"degraded" when a service is down, and "down" when nothing answers. Each monitor
-carries "status", "uptime_90d" (percent, null before the first day of data),
-and "latency_ms" from the most recent successful probe. A grouped
-monitor speaks for several hosts and says only how it is: "degraded"
-while some of them are unreachable, "down" once half or more are. How
-many there are is not published — that number is a customer count.
+"degraded" when a service is down, and "down" when nothing answers.
+
+Each monitor carries "status" — "up", "degraded", "down", or "unknown"
+before its first probe has written anything — "uptime_90d" (percent, null
+before the first day of data), and "latency_ms" from the most recent
+successful probe. A grouped monitor speaks for several hosts and says only
+how it is: "degraded" while some of them are unreachable, "down" once half
+or more are. How many there are is not published — that number is a
+customer count. Its uptime and its days are the median member's rather
+than a total, so one host's outage is not billed to the others.
+
+## Writing
+
+For the operator, with a token. POST ${origin}/api/notice with
+Authorization: Bearer <token> and a JSON body of {"body": "markdown",
+"severity": "info|maintenance|degraded|outage", "lang":
+"all|en|tr|de|es|fr"}; POST ${origin}/api/notice/resolve with the same
+header and {"id": n}.
+
+Ten guesses at the token a minute per address; a refusal carries
+retry-after.
+
+## Optional
+
+- [robots.txt](${origin}/robots.txt): everyone is allowed; there is nothing here worth hiding
 `
   return new Response(text, {
     headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store", ...CORS },

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { feed, forgive, postNotice, throttled } from "../src/lib/api.ts"
+import { feed, forgive, llms, postNotice, throttled } from "../src/lib/api.ts"
 import type { Db } from "../src/lib/db.ts"
 import type { Monitor } from "../src/lib/probe.ts"
 import type { Notice, PageData } from "../src/lib/store.ts"
@@ -158,5 +158,24 @@ describe("the feed stays readable whatever is written into it", () => {
       "en",
     ).text()
     expect(illFormed(xml)).toEqual([])
+  })
+})
+
+describe("llms.txt is the shape the specification asks for", () => {
+  test("a heading, a summary to read first, and lists of links", async () => {
+    const text = await llms("https://status.example.com", "example").text()
+    const lines = text.split("\n")
+
+    expect(lines[0]).toBe("# example")
+    // The summary a reader takes before anything else.
+    expect(lines[2]?.startsWith("> ")).toBe(true)
+
+    // Every list entry is a link, not a sentence about one.
+    const items = lines.filter((l) => l.startsWith("- "))
+    expect(items.length).toBeGreaterThan(5)
+    expect(items.filter((l) => !/^- \[[^\]]+\]\(https:\/\/[^)]+\)/.test(l))).toEqual([])
+
+    // Every section is an h2; the file has no deeper headings to skip.
+    expect(lines.filter((l) => l.startsWith("#")).filter((l) => !/^(# |## )/.test(l))).toEqual([])
   })
 })
