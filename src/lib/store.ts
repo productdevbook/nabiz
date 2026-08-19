@@ -1,4 +1,5 @@
-import type { Monitor, ProbeResult } from "./probe"
+import type { Db, Stmt } from "./db.ts"
+import type { Monitor, ProbeResult } from "./probe.ts"
 
 export interface DayRow {
   monitor_id: number
@@ -15,7 +16,7 @@ export interface StateChange {
   heldFor: number | null
 }
 
-export async function monitors(db: D1Database): Promise<Monitor[]> {
+export async function monitors(db: Db): Promise<Monitor[]> {
   const { results } = await db
     .prepare("SELECT * FROM monitors WHERE enabled = 1 ORDER BY position, id")
     .all<Monitor>()
@@ -27,11 +28,11 @@ function utcDay(at: number): string {
 }
 
 /** Writes one round of results and returns whichever monitors changed state. */
-export async function record(db: D1Database, results: ProbeResult[]): Promise<StateChange[]> {
+export async function record(db: Db, results: ProbeResult[]): Promise<StateChange[]> {
   const now = Date.now()
   const day = utcDay(now)
 
-  const writes: D1PreparedStatement[] = []
+  const writes: Stmt[] = []
   for (const r of results) {
     writes.push(
       db
@@ -54,7 +55,7 @@ export async function record(db: D1Database, results: ProbeResult[]): Promise<St
   const known = new Map(states.map((s) => [s.monitor_id, s]))
 
   const changes: StateChange[] = []
-  const stateWrites: D1PreparedStatement[] = []
+  const stateWrites: Stmt[] = []
   const put = (id: number, ok: boolean, since: number, fails: number) =>
     stateWrites.push(
       db
@@ -115,7 +116,7 @@ export async function record(db: D1Database, results: ProbeResult[]): Promise<St
 
 /** Raw checks feed only the current-latency figure; two days is plenty.
  *  Events tell a longer story and get half a year. */
-export async function prune(db: D1Database): Promise<void> {
+export async function prune(db: Db): Promise<void> {
   await db.batch([
     db.prepare("DELETE FROM checks WHERE at < ?").bind(Date.now() - 2 * 24 * 3600 * 1000),
     db.prepare("DELETE FROM events WHERE at < ?").bind(Date.now() - 180 * 24 * 3600 * 1000),
@@ -128,7 +129,7 @@ export interface EventRow {
   ok: number
 }
 
-export async function recentEvents(db: D1Database, limit: number): Promise<EventRow[]> {
+export async function recentEvents(db: Db, limit: number): Promise<EventRow[]> {
   const { results } = await db
     .prepare("SELECT monitor_id, at, ok FROM events ORDER BY at DESC LIMIT ?")
     .bind(limit)
@@ -146,7 +147,7 @@ export interface PageData {
   spark: Map<number, number[]>
 }
 
-export async function forPage(db: D1Database, window: number): Promise<PageData> {
+export async function forPage(db: Db, window: number): Promise<PageData> {
   const all = await monitors(db)
   const since = new Date(Date.now() - window * 24 * 3600 * 1000).toISOString().slice(0, 10)
 
@@ -210,7 +211,7 @@ export interface Notice {
 /** Open notices first, newest first; the resolved tail is capped so the
  *  page tells the story without becoming the archive. */
 export async function notices(
-  db: D1Database,
+  db: Db,
   resolvedLimit: number,
   lang: string | null = null,
 ): Promise<Notice[]> {
@@ -228,7 +229,7 @@ export async function notices(
 }
 
 export async function addNotice(
-  db: D1Database,
+  db: Db,
   severity: string,
   body: string,
   lang: string | null,
@@ -242,10 +243,10 @@ export async function addNotice(
 }
 
 /** True when something was actually resolved just now. */
-export async function resolveNotice(db: D1Database, id: number): Promise<boolean> {
+export async function resolveNotice(db: Db, id: number): Promise<boolean> {
   const r = await db
     .prepare("UPDATE notices SET resolved_at = ? WHERE id = ? AND resolved_at IS NULL")
     .bind(Date.now(), id)
     .run()
-  return ((r as { meta?: { changes?: number } }).meta?.changes ?? 0) > 0
+  return (r.meta?.changes ?? 0) > 0
 }

@@ -1,3 +1,5 @@
+import type { Db } from "../src/lib/db.ts"
+
 /** Just enough D1 for the state machine to run against: canned rows out,
  *  bound writes captured for the test to read. */
 export interface Bound {
@@ -32,5 +34,5 @@ export function fakeDb(rowsBySql: (sql: string) => unknown[]) {
       return stmts.map(() => ({ results: [] }))
     },
   }
-  return { db: db as unknown as D1Database, writes }
+  return { db: db as unknown as Db, writes }
 }

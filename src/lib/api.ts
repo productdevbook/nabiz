@@ -1,9 +1,10 @@
-import type { Lang } from "./i18n"
-import { isLang, t } from "./i18n"
-import { render } from "./markdown"
-import type { Overall } from "./shape"
-import { eventsView, overall, rows, uptimeOf } from "./shape"
-import type { EventRow, Notice, PageData } from "./store"
+import type { Db } from "./db.ts"
+import type { Lang } from "./i18n.ts"
+import { isLang, t } from "./i18n.ts"
+import { render } from "./markdown.ts"
+import type { Overall } from "./shape.ts"
+import { eventsView, overall, rows, uptimeOf } from "./shape.ts"
+import type { EventRow, Notice, PageData } from "./store.ts"
 
 // Read-only public data; the same courtesy the page extends, for machines.
 const CORS = { "access-control-allow-origin": "*" }
@@ -218,7 +219,8 @@ export function throttled(request: Request, now = Date.now()): boolean {
 }
 
 /** The operator's word is a write, and writes need the token — compared in
- *  constant time, because a status page is still a door. */
+ *  constant time, because a status page is still a door. Workers offer the
+ *  comparison; off the edge it is the loop below, which is the same promise. */
 export async function authorized(request: Request, token: string | undefined): Promise<boolean> {
   if (!token) return false
   const given = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? ""
@@ -226,13 +228,20 @@ export async function authorized(request: Request, token: string | undefined): P
   const a = enc.encode(given)
   const b = enc.encode(token)
   if (a.byteLength !== b.byteLength) return false
-  return crypto.subtle.timingSafeEqual(a, b)
+
+  const subtle = crypto.subtle as {
+    timingSafeEqual?: (x: ArrayBufferView, y: ArrayBufferView) => boolean
+  }
+  if (subtle.timingSafeEqual !== undefined) return subtle.timingSafeEqual(a, b)
+  let diff = 0
+  for (let i = 0; i < a.length; i += 1) diff |= (a[i] as number) ^ (b[i] as number)
+  return diff === 0
 }
 
-export async function postNotice(request: Request, db: D1Database): Promise<Response> {
+export async function postNotice(request: Request, db: Db): Promise<Response> {
   let body: { severity?: unknown; body?: unknown }
   try {
-    body = await request.json()
+    body = (await request.json()) as { severity?: unknown; body?: unknown }
   } catch {
     return json({ error: "the body was not json" }, 400)
   }
@@ -250,20 +259,20 @@ export async function postNotice(request: Request, db: D1Database): Promise<Resp
   if (text.length === 0 || text.length > 4000)
     return json({ error: "the notice must be 1 to 4000 characters" }, 400)
 
-  const { addNotice } = await import("./store")
+  const { addNotice } = await import("./store.ts")
   const id = await addNotice(db, severity, text, lang)
   return json({ id }, 201)
 }
 
-export async function postResolve(request: Request, db: D1Database): Promise<Response> {
+export async function postResolve(request: Request, db: Db): Promise<Response> {
   let body: { id?: unknown }
   try {
-    body = await request.json()
+    body = (await request.json()) as { id?: unknown }
   } catch {
     return json({ error: "the body was not json" }, 400)
   }
   if (typeof body.id !== "number") return json({ error: "id must be a number" }, 400)
-  const { resolveNotice } = await import("./store")
+  const { resolveNotice } = await import("./store.ts")
   const done = await resolveNotice(db, body.id)
   return done ? json({ resolved: body.id }) : json({ error: "no open notice with that id" }, 404)
 }

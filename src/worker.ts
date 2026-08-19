@@ -2,10 +2,7 @@
 // one deployment, two duties.
 import { handle } from "@astrojs/cloudflare/handler"
 
-import { alert } from "./lib/alert"
-import { langOf } from "./lib/i18n"
-import { probe } from "./lib/probe"
-import { monitors, prune, record } from "./lib/store"
+import { tick } from "./lib/tick.ts"
 
 /** A status page's traffic spikes exactly when things are down. The page
  *  is held at the edge for less than a probe interval, so nothing served
@@ -31,14 +28,7 @@ export default {
     return handle(request, env, ctx)
   },
   async scheduled(controller: ScheduledController, env: Env) {
-    const watched = await monitors(env.DB)
-    if (watched.length === 0) return
-
-    const results = await Promise.all(watched.map(probe))
-    const changes = await record(env.DB, results)
-    await alert(env, changes, langOf(env.LANG))
-
     // Once an hour is often enough to sweep what has aged out.
-    if (new Date(controller.scheduledTime).getUTCMinutes() === 0) await prune(env.DB)
+    await tick(env.DB, env, new Date(controller.scheduledTime).getUTCMinutes() === 0)
   },
 } satisfies ExportedHandler<Env>
