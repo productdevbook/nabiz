@@ -9,7 +9,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
         with:
           # Pinned to a release: the lockfile format tracks the bun version,
@@ -23,3 +23,23 @@ jobs:
       # The build is the rest of the typecheck: it generates the route
       # tree and compiles the components tsc never sees.
       - run: bun run build
+      # The server target is the other half of the same source; a build
+      # that only ever runs in a Dockerfile is a build nobody watches.
+      - run: bun run build:server
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -t nabiz:ci .
+      - name: it answers on the port it says
+        run: |
+          docker run -d --name nabiz-ci -p 8080:8080 nabiz:ci
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/health || true)
+            [ "$code" = "204" ] && break
+            sleep 1
+          done
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/)" = "200"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/health)" = "204"
+          docker logs nabiz-ci
