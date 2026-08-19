@@ -27,6 +27,17 @@ describe("the brake on token guessing", () => {
     expect(throttled(from("192.0.2.4"), Date.now() + 61_000)).toBe(false)
   })
 
+  // A flood of addresses is remembered, but not forever: the map has a
+  // ceiling, and reaching it forgets the entries nearest their expiry
+  // rather than growing until the process dies.
+  test("the map of addresses does not grow without end", () => {
+    for (let i = 0; i < 11; i += 1) throttled(from("198.51.100.1"))
+    expect(throttled(from("198.51.100.1"))).toBe(true)
+    for (let i = 0; i < 11_000; i += 1) throttled(from(`203.0.113.${i}`))
+    // Evicted along with the flood, which is the trade the ceiling makes.
+    expect(throttled(from("198.51.100.1"))).toBe(false)
+  })
+
   // The operator writing a run of updates during an incident is not a
   // brute force, and the tenth notice is not the one to refuse.
   test("a request that turned out to be authorized is not a guess", () => {

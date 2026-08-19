@@ -236,8 +236,24 @@ export function forgive(request: Request): void {
   attempts.delete(request.headers.get("cf-connecting-ip") ?? "?")
 }
 
+/** How many addresses are remembered at once. A worker isolate is short
+ *  enough to forget by itself; a server that runs for months is not, and a
+ *  flood of addresses must cost memory that stops somewhere. */
+const REMEMBERED = 10_000
+
 export function throttled(request: Request, now = Date.now()): boolean {
-  if (attempts.size > 10_000) for (const [k, v] of attempts) if (v.until < now) attempts.delete(k)
+  if (attempts.size >= REMEMBERED) {
+    for (const [k, v] of attempts) if (v.until < now) attempts.delete(k)
+    // Still full, so every slot is live: the ones closest to expiring go
+    // first, because they were about to anyway. A flood can buy itself a
+    // fresh count this way, which is the cost of not growing forever.
+    if (attempts.size >= REMEMBERED) {
+      const soonest = [...attempts.entries()]
+        .toSorted((a, b) => a[1].until - b[1].until)
+        .slice(0, REMEMBERED / 2)
+      for (const [k] of soonest) attempts.delete(k)
+    }
+  }
   const ip = request.headers.get("cf-connecting-ip") ?? "?"
   const slot = attempts.get(ip)
   if (slot === undefined || slot.until < now) {

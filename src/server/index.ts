@@ -174,6 +174,7 @@ async function main(): Promise<void> {
     process.exit(1)
   })
 
+  let round: Promise<void> | null = null
   let beating = false
   // Zero, not now: the Workers cron prunes on the wall clock, and a
   // process restarted more often than hourly would otherwise never sweep.
@@ -197,8 +198,11 @@ async function main(): Promise<void> {
     }
   }
 
-  const timer = setInterval(() => void beat(), interval)
-  void beat()
+  const start = () => {
+    round = beat()
+  }
+  const timer = setInterval(start, interval)
+  start()
 
   server.listen(port, host, () => {
     console.log(`[nabiz] listening on http://${host}:${port} — database ${DB_PATH}`)
@@ -208,7 +212,11 @@ async function main(): Promise<void> {
     console.log(`[nabiz] ${signal}, stopping`)
     clearInterval(timer)
     server.close(() => {
-      void db.close().then(() => process.exit(0))
+      // The round in flight keeps its database until it has written what
+      // it probed; closing underneath it would throw away the minute.
+      void Promise.resolve(round)
+        .then(() => db.close())
+        .then(() => process.exit(0))
     })
     // A connection somebody left open is not a reason to stay forever.
     setTimeout(() => process.exit(0), 5_000).unref()
