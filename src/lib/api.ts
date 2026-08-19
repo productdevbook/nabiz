@@ -90,8 +90,19 @@ export function badge(data: PageData): Response {
   })
 }
 
+/** XML 1.0 carries tab, newline and carriage return and no other control
+ *  character, and a lone surrogate is not a character at all. One of either,
+ *  pasted into a notice or a monitor's name, costs a subscriber the whole
+ *  feed rather than the one item — so they are dropped rather than escaped. */
 function escXml(s: string): string {
-  return s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c] as string)
+  let out = ""
+  for (const ch of s) {
+    const code = ch.codePointAt(0) as number
+    if (code < 0x20 && code !== 9 && code !== 10 && code !== 13) continue
+    if (code >= 0xd800 && code <= 0xdfff) continue
+    out += ch === "&" ? "&amp;" : ch === "<" ? "&lt;" : ch === ">" ? "&gt;" : ch
+  }
+  return out
 }
 
 /** State changes as RSS — the subscription a paid status product sells,
@@ -117,7 +128,7 @@ export function feed(
   for (const n of noticeList) {
     entries.push({
       at: n.at,
-      xml: `<item><title>[${escXml(n.severity)}] ${escXml(n.body_md.split("\n")[0] ?? "").slice(0, 100)}</title><description>${escXml(render(n.body_md))}</description><pubDate>${new Date(n.at).toUTCString()}</pubDate><guid isPermaLink="false">notice-${n.id}</guid><link>${origin}/</link></item>`,
+      xml: `<item><title>[${escXml(n.severity)}] ${escXml((n.body_md.split("\n")[0] ?? "").slice(0, 100))}</title><description>${escXml(render(n.body_md))}</description><pubDate>${new Date(n.at).toUTCString()}</pubDate><guid isPermaLink="false">notice-${n.id}</guid><link>${origin}/</link></item>`,
     })
   }
   const items = entries

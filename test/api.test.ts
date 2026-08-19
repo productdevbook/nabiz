@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test"
 
-import { forgive, postNotice, throttled } from "../src/lib/api.ts"
+import { feed, forgive, postNotice, throttled } from "../src/lib/api.ts"
 import type { Db } from "../src/lib/db.ts"
+import type { Monitor } from "../src/lib/probe.ts"
+import type { Notice, PageData } from "../src/lib/store.ts"
 
 const from = (ip: string) =>
   new Request("https://status.example.com/api/notice", {
@@ -41,7 +43,7 @@ const nowhere = {
   batch: async () => [],
 } as unknown as Db
 
-const body = (raw: string) =>
+const jsonPost = (raw: string) =>
   new Request("https://status.example.com/api/notice", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -51,8 +53,99 @@ const body = (raw: string) =>
 describe("a body that is not an object is a bad request", () => {
   test("null, a string and a list are all refused with 400", async () => {
     const answers = await Promise.all(
-      ["null", '"a notice"', "[1, 2]", "{"].map((raw) => postNotice(body(raw), nowhere)),
+      ["null", '"a notice"', "[1, 2]", "{"].map((raw) => postNotice(jsonPost(raw), nowhere)),
     )
     expect(answers.map((r) => r.status)).toEqual([400, 400, 400, 400])
+  })
+})
+
+const monitor = (over: Partial<Monitor> = {}): Monitor => ({
+  id: 1,
+  slug: "api",
+  name: "API",
+  url: "https://api.example.com/",
+  method: "GET",
+  expect_status: 200,
+  timeout_ms: 1000,
+  expect_body: null,
+  fail_threshold: 2,
+  group_name: null,
+  grouped: 0,
+  enabled: 1,
+  position: 0,
+  ...over,
+})
+
+const page = (monitors: Monitor[]): PageData => ({
+  monitors,
+  states: new Map(),
+  days: new Map(),
+  latency: new Map(),
+  spark: new Map(),
+})
+
+const notice = (text: string): Notice => ({
+  id: 1,
+  at: 1_700_000_000_000,
+  severity: "degraded",
+  body_md: text,
+  resolved_at: null,
+  lang: null,
+})
+
+/** Every & in a well-formed document opens an entity, and XML carries no
+ *  control character but tab, newline and carriage return. */
+function illFormed(xml: string): string[] {
+  const wrong: string[] = []
+  for (const m of xml.matchAll(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g))
+    wrong.push(`bare & at ${m.index}`)
+  for (const ch of xml) {
+    const code = ch.codePointAt(0) as number
+    if (code < 0x20 && code !== 9 && code !== 10 && code !== 13) wrong.push(`control U+${code}`)
+    if (code >= 0xd800 && code <= 0xdfff) wrong.push(`lone surrogate`)
+  }
+  return wrong
+}
+
+describe("the feed stays readable whatever is written into it", () => {
+  test("a title cut at a hundred characters is cut before it is escaped", async () => {
+    // The ampersand sits where the cut lands, so escaping first would leave
+    // half an entity behind — and half an entity costs the whole document.
+    const body = "x".repeat(98) + "& more"
+    const xml = await feed(
+      "https://status.example.com",
+      "t",
+      page([]),
+      [],
+      [notice(body)],
+      "en",
+    ).text()
+    expect(illFormed(xml)).toEqual([])
+  })
+
+  test("a control character in a notice does not cost the subscriber the feed", async () => {
+    const xml = await feed(
+      "https://status.example.com",
+      "t",
+      page([]),
+      [],
+      [notice("before\u0008after")],
+      "en",
+    ).text()
+    expect(illFormed(xml)).toEqual([])
+  })
+
+  test("a control character in a monitor's name does not either", async () => {
+    const monitors = [monitor({ name: "API\u000bEU" })]
+    const events = [{ monitor_id: 1, at: 1_700_000_000_000, ok: 0 }]
+    const xml = await feed(
+      "https://status.example.com",
+      "t\u0007",
+      page(monitors),
+      events,
+      [],
+      "en",
+    ).text()
+    expect(illFormed(xml)).toEqual([])
   })
 })
