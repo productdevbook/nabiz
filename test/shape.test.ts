@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test"
 
-import type { Monitor } from "../src/lib/probe"
-import type { Row } from "../src/lib/shape"
-import { eventsView, overall, rows, uptimeOf } from "../src/lib/shape"
-import type { PageData } from "../src/lib/store"
+import type { Monitor } from "../src/lib/probe.ts"
+import type { Row } from "../src/lib/shape.ts"
+import { eventsView, overall, rows, uptimeOf } from "../src/lib/shape.ts"
+import type { PageData } from "../src/lib/store.ts"
 
 let nextId = 0
 function monitor(over: Partial<Monitor> = {}): Monitor {
@@ -64,15 +64,33 @@ describe("grouped monitors are counted, never listed", () => {
   })
 })
 
+const hosted = (total: number): Monitor[] =>
+  Array.from({ length: total }, (_, i) => ({
+    id: i + 1,
+    slug: `s${i}`,
+    name: `site ${i}`,
+    url: "https://example.test/",
+    method: "GET",
+    expect_status: 200,
+    timeout_ms: 1000,
+    expect_body: null,
+    fail_threshold: 2,
+    group_name: "Hosted sites",
+    grouped: 1,
+    enabled: 1,
+    position: i,
+  }))
+
+const day = (id: number, ok: number, total: number) => ({
+  monitor_id: id,
+  day: "2026-08-12",
+  total,
+  ok,
+  ms_sum: 0,
+})
+
 describe("one customer's site is not every customer's site", () => {
   test("one member's bad day does not become the group's history", () => {
-    const day = (id: number, ok: number, total: number) => ({
-      monitor_id: id,
-      day: "2026-08-12",
-      total,
-      ok,
-      ms_sum: 0,
-    })
     const members: Monitor[] = [1, 2, 3, 4, 5].map(
       (id) =>
         ({
@@ -111,25 +129,8 @@ describe("one customer's site is not every customer's site", () => {
   })
 
   test("half or more unreachable is the machine's problem, fewer is not", () => {
-    const half = (up: number, total: number): Monitor[] =>
-      Array.from({ length: total }, (_, i) => ({
-        id: i + 1,
-        slug: `s${i}`,
-        name: `site ${i}`,
-        url: "https://example.test/",
-        method: "GET",
-        expect_status: 200,
-        timeout_ms: 1000,
-        expect_body: null,
-        fail_threshold: 2,
-        group_name: "Hosted sites",
-        grouped: 1,
-        enabled: 1,
-        position: i,
-      })).map((m, i) => ({ ...m, ok: i < up }) as unknown as Monitor)
-
     const shape = (up: number, total: number) => {
-      const monitors = half(up, total)
+      const monitors = hosted(total)
       const states = new Map(monitors.map((m, i) => [m.id, { ok: i < up, since: 0 }]))
       return rows({
         monitors,

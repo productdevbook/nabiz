@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test"
 
-import type { Monitor, ProbeResult } from "../src/lib/probe"
-import { record } from "../src/lib/store"
-import { fakeDb } from "./fake-d1"
+import type { Monitor, ProbeResult } from "../src/lib/probe.ts"
+import { record } from "../src/lib/store.ts"
+import { fakeDb } from "./fake-d1.ts"
 
 function monitor(over: Partial<Monitor> = {}): Monitor {
   return {

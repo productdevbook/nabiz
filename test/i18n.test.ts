@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
-import { langOf, t } from "../src/lib/i18n"
-import type { Key, Lang } from "../src/lib/i18n"
+import { langOf, t } from "../src/lib/i18n.ts"
+import type { Key, Lang } from "../src/lib/i18n.ts"
 
 const langs: Lang[] = ["en", "tr", "de", "es", "fr"]
 const someKeys: Key[] = ["all_up", "notices", "ed_publish", "sev_outage", "recent_events"]

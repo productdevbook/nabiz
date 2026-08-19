@@ -1,9 +1,9 @@
 import type { APIRoute } from "astro"
 import { env } from "cloudflare:workers"
 
-import { feed } from "../lib/api"
-import { langOf } from "../lib/i18n"
-import { forPage, notices, recentEvents } from "../lib/store"
+import { feed } from "../lib/api.ts"
+import { langOf } from "../lib/i18n.ts"
+import { forPage, notices, recentEvents } from "../lib/store.ts"
 
 export const GET: APIRoute = async ({ url }) => {
   const lang = langOf(url.searchParams.get("lang") ?? env.LANG)

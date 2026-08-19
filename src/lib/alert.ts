@@ -1,6 +1,6 @@
-import type { Lang } from "./i18n"
-import { t } from "./i18n"
-import type { StateChange } from "./store"
+import type { Lang } from "./i18n.ts"
+import { t } from "./i18n.ts"
+import type { StateChange } from "./store.ts"
 
 export interface AlertEnv {
   TELEGRAM_BOT_TOKEN?: string

@@ -1,5 +1,5 @@
-import type { Monitor } from "./probe"
-import type { DayRow, EventRow, PageData } from "./store"
+import type { Monitor } from "./probe.ts"
+import type { DayRow, EventRow, PageData } from "./store.ts"
 
 /** One line on the page or in the API: a monitor, or a group speaking for
  *  its members. Grouped members never appear on their own, and neither

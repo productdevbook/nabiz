@@ -1,11 +1,11 @@
 ---
 import "../styles.css"
 import { env } from "cloudflare:workers"
-import { statusJson } from "../lib/api"
-import { langOf, NAMES, t, type Lang } from "../lib/i18n"
-import { callout, eventLine, pastNotice, serviceRow, when } from "../lib/render"
-import { eventsView, overall, rows } from "../lib/shape"
-import { forPage, notices, recentEvents } from "../lib/store"
+import { statusJson } from "../lib/api.ts"
+import { langOf, NAMES, t, type Lang } from "../lib/i18n.ts"
+import { callout, eventLine, pastNotice, serviceRow, when } from "../lib/render.ts"
+import { eventsView, overall, rows } from "../lib/shape.ts"
+import { forPage, notices, recentEvents } from "../lib/store.ts"
 
 const lang = langOf(Astro.url.searchParams.get("lang") ?? env.LANG)
 const title = env.TITLE ?? "nabiz"

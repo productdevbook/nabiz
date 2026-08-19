@@ -1,11 +1,11 @@
 // The page's HTML fragments — everything data-shaped, kept out of the
 // component so it stays testable and the component stays readable.
-import type { Lang } from "./i18n"
-import { t } from "./i18n"
-import { render } from "./markdown"
-import type { Row } from "./shape"
-import { uptimeOf } from "./shape"
-import type { DayRow, EventRow, Notice } from "./store"
+import type { Lang } from "./i18n.ts"
+import { t } from "./i18n.ts"
+import { render } from "./markdown.ts"
+import type { Row } from "./shape.ts"
+import { uptimeOf } from "./shape.ts"
+import type { DayRow, EventRow, Notice } from "./store.ts"
 
 export const WINDOW = 90
 

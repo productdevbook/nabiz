@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 
-import { throttled } from "../src/lib/api"
+import { throttled } from "../src/lib/api.ts"
 
 const from = (ip: string) =>
   new Request("https://status.example.com/api/notice", {
