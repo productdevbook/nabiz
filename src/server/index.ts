@@ -88,6 +88,11 @@ async function main(): Promise<void> {
   // Additive and idempotent, the same file the Workers deployment runs.
   await db.exec(await readFile(schemaFile, "utf8"))
 
+  const built = await stat(entryFile).catch(() => null)
+  if (built === null) {
+    console.error(`[nabiz] no built site at ${entryFile} — run \`bun run build:server\` first`)
+    process.exit(1)
+  }
   const { handler } = (await import(`file://${entryFile}`)) as { handler: Handler }
 
   const server = createServer((req, res) => {
