@@ -7,9 +7,11 @@
 
 # nabiz
 
-Self-hosted status page running as a single Cloudflare Worker: Astro
-renders the page, a cron trigger runs the probes, D1 stores the history.
-Fits in the free tier. *nabız* is Turkish for "pulse"; the ASCII spelling
+Self-hosted status page. On Cloudflare it is a single Worker: Astro
+renders the page, a cron trigger runs the probes, D1 stores the history,
+and it fits in the free tier. The same source runs as a single container
+on a machine you own — the same page, an interval where the cron was, and
+SQLite where D1 was. *nabız* is Turkish for "pulse"; the ASCII spelling
 `nabiz` is used throughout.
 
 <p align="center">
@@ -32,12 +34,12 @@ Fits in the free tier. *nabız* is Turkish for "pulse"; the ASCII spelling
 - Alerts to Telegram and/or a webhook on state changes.
 - Five languages (en, tr, de, es, fr), light/dark theme, auto-refresh.
 - JSON API, RSS feed, SVG badge, `llms.txt`.
+- Two ways to run it: Cloudflare Workers, or a container on hardware you
+  own — one schema, so a database moves between them.
 
 Not included: incident timelines, subscriber emails, multi-region probes.
-Docker/Kubernetes/server runtimes are planned — see the
-[roadmap issues](https://github.com/productdevbook/nabiz/issues?q=label%3Aroadmap).
 
-## Setup
+## On Cloudflare
 
 ```sh
 git clone https://github.com/productdevbook/nabiz && cd nabiz
@@ -61,15 +63,65 @@ bunx wrangler d1 execute nabiz --remote --command "INSERT INTO monitors …"
 
 To serve on your own hostname, uncomment `routes` in `wrangler.toml`.
 
+## On a machine you own
+
+One image, one volume, one port. Nothing to configure at boot: an empty
+volume comes up as an empty, working page, and monitors are rows you add
+to the database inside it.
+
+```sh
+docker run -d --name nabiz -p 8080:8080 -v nabiz:/data \
+  -e NABIZ_TITLE="status" -e NABIZ_LANG=en -e ADMIN_TOKEN=… \
+  ghcr.io/productdevbook/nabiz:latest
+```
+
+Or with [`compose.yaml`](compose.yaml): `docker compose up -d`. In a
+cluster: [`deploy/k8s`](deploy/k8s/README.md).
+
+Monitors go in the same way as everywhere else — as rows. The image has
+bun, so `bun:sqlite` is the way in; there is no `sqlite3` binary:
+
+```sh
+docker exec nabiz bun -e '
+  import { Database } from "bun:sqlite"
+  new Database("/data/nabiz.db").run(
+    "INSERT INTO monitors (slug, name, url, position) VALUES (?, ?, ?, ?)",
+    ["api", "API", "https://api.example.com/health", 1],
+  )
+'
+```
+
+From a checkout instead of an image, with bun or Node 24+:
+
+```sh
+bun run build:server     # astro build for the server target
+bun run start            # or: node src/server/index.ts
+```
+
+The probe loop runs in the same process on an interval; there is no host
+cron to add. Probes leave from wherever the container runs, which is the
+point when what you watch is behind a firewall no edge can reach — and
+the reason to keep a Cloudflare deployment as well when what you watch is
+the machine the page is on.
+
 ## Configuration
 
-| Where | Name | Purpose |
+On Cloudflare these are `[vars]` in `wrangler.toml` and secrets set with
+`wrangler secret put`; on a server they are environment variables.
+
+| Worker | Server | Purpose |
 |---|---|---|
-| `wrangler.toml` `[vars]` | `TITLE` | page title |
-| `wrangler.toml` `[vars]` | `LANG` | default language (`en`, `tr`, `de`, `es`, `fr`) |
-| `wrangler secret put` | `ADMIN_TOKEN` | enables notice writing; without it all writes are refused |
-| `wrangler secret put` | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Telegram alerts (optional) |
-| `wrangler secret put` | `ALERT_WEBHOOK_URL` | webhook alerts (optional) |
+| `TITLE` | `NABIZ_TITLE` | page title |
+| `LANG` | `NABIZ_LANG` | default language (`en`, `tr`, `de`, `es`, `fr`) |
+| `ADMIN_TOKEN` | `ADMIN_TOKEN` | enables notice writing; without it all writes are refused |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | same | Telegram alerts (optional) |
+| `ALERT_WEBHOOK_URL` | same | webhook alerts (optional) |
+
+The server target reads a few more, all optional: `PORT` (8080), `HOST`
+(0.0.0.0), `NABIZ_DB` (`/data/nabiz.db`), `NABIZ_INTERVAL_MS` (60000) and
+`TRUST_PROXY` — set that last one only behind a proxy that writes
+`x-forwarded-for`, because the notice endpoint counts guesses by address
+and would otherwise count everyone as the proxy.
 
 ## Notices
 
@@ -119,13 +171,21 @@ Machine access without HTML scraping:
 bun run dev                                               # dev server with local D1
 bunx wrangler d1 execute nabiz --local --file schema.sql  # once, creates the local db
 bun run check                                             # typecheck + lint + format + tests
+bun run build && bun run build:server                     # both targets, both typechecks
 ```
+
+Everything under `src/lib/` is plain TypeScript against a narrow database
+interface (`src/lib/db.ts`) that D1 already satisfies and SQLite is made
+to (`src/lib/sqlite.ts`). That seam is the whole difference between the
+two runtimes; the page, the probes and the state machine are one copy.
 
 Upgrading from an earlier version: [docs/UPGRADING.md](docs/UPGRADING.md).
 
-Limits: the free tier allows 50 subrequests per invocation (about 45
-monitors; beyond that, split the cron). Probes run from Cloudflare's edge.
-Days are counted in UTC.
+Limits: on Workers the free tier allows 50 subrequests per invocation
+(about 45 monitors; beyond that, split the cron) and probes run from
+Cloudflare's edge. On a server the limit is the machine's, and one process
+writes one SQLite file — which is why the Kubernetes manifests stay at one
+replica. Days are counted in UTC either way.
 
 ## License
 

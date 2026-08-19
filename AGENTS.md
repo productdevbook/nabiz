@@ -1,30 +1,42 @@
 # Working on nabiz
 
-nabiz is a status page as one Cloudflare Worker: an Astro site rendered on
-the Worker, a cron on the same Worker doing the probing, history in D1.
-`src/worker.ts` is the entry — `fetch` goes to Astro, `scheduled` to the
-probes.
+nabiz is a status page with two runtimes and one source. On Cloudflare it
+is one Worker: an Astro site rendered on the Worker, a cron on the same
+Worker doing the probing, history in D1. `src/worker.ts` is the entry —
+`fetch` goes to Astro, `scheduled` to the probes. On a server it is one
+process: the same Astro output through the Node adapter, an interval where
+the cron was, SQLite where D1 was. `src/server/index.ts` is that entry.
 
 ## The map
 
     src/worker.ts        the Worker entry: Astro handler + cron
+    src/server/          the server entry: http + static + interval,
+                         and env.ts, which answers `cloudflare:workers`
+                         off the edge
     src/pages/           Astro routes; index.astro is the page,
                          *.ts files are the JSON/text endpoints
-    src/lib/             everything testable: probe, store (D1),
-                         shape (view models), render (HTML strings),
-                         api (responses), i18n, markdown, alert
+    src/lib/             everything testable: probe, store, tick (one
+                         probe round), db (the database interface),
+                         sqlite (that interface over a file), shape
+                         (view models), render (HTML strings), api
+                         (responses), i18n, markdown, alert
     src/styles.css       the whole design system (Tailwind v4, CSS-first)
     schema.sql           the database, additively; changes are ALTERs
-                         listed in README's upgrade section
-    test/                bun tests against a fake D1
+                         listed in docs/UPGRADING.md
+    Dockerfile           the container: build stage, then the built site
+    compose.yaml         one service, one volume
+    deploy/k8s/          plain manifests, one replica by design
+    test/                bun tests against a fake D1 and a real SQLite
 
 ## Commands
 
     bun run dev          dev server on :5173 with a local D1 (miniflare)
     bun run check        typecheck + lint + format check + tests — run
-                         before every commit; CI runs this plus the build
+                         before every commit; CI runs this plus both builds
     bun run build        astro build; also the only full typecheck of
                          .astro files
+    bun run build:server the same source for the Node adapter
+    bun run start        run the server target from a checkout
     bun run deploy       astro build + wrangler deploy -c dist/server/wrangler.json
 
 The local D1 lives under `.wrangler/state/`; create it once with
@@ -41,6 +53,12 @@ The local D1 lives under `.wrangler/state/`; create it once with
   language is a type error; do not work around it.
 - **Stay inside Cloudflare's free tier**: one cron a minute, no external
   service a probe depends on, no dependency needing bundler config.
+- **`src/lib/` knows no platform.** It speaks the narrow `Db` interface
+  from `src/lib/db.ts`, which D1 satisfies as it is and SQLite is made to.
+  A `D1Database` type or a `cloudflare:` import below `src/lib/` is a bug;
+  so is a second copy of a rule that already lives there.
+- Relative imports carry the `.ts` extension: Node runs the server entry
+  straight from source and does not guess extensions.
 - Comments only for what the code cannot say. Commit messages say why.
 
 ## The design system (src/styles.css)
@@ -69,7 +87,11 @@ Icons are Lucide paths inlined in the markup; no icon dependency.
   uses hourly averages of the last 24h (`src/lib/store.ts`). Old fixture
   data falls out of both windows and the chip rightly disappears —
   reseed with fresh timestamps before concluding it broke.
-- `tsc` is scoped to `tsconfig.lib.json` (lib + tests). Astro components
-  are type-checked by the build, not by tsc.
+- `tsc` is scoped to `tsconfig.lib.json` (lib + server + tests) and types
+  them with `@types/node`; the root `tsconfig.json` types the pages and the
+  worker with `@cloudflare/workers-types`. The two sets of globals cannot
+  share a project — that is why there are two.
+- Astro components are type-checked by the build, not by tsc; `bun run
+  build:server` is the second half of that check.
 - Formatting is oxfmt with `semi: false`; lint is oxlint. CI runs both
   with `--deny-warnings` and `--check`.

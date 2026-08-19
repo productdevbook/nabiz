@@ -20,3 +20,25 @@ bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE notices ADD COLUM
 
 v2.0 is the Astro rebuild: same worker, same schema plus the one column,
 but deploying now runs `astro build` first — `bun run deploy` does both.
+
+v3.0 adds the server runtime, the container and the Kubernetes manifests.
+The schema does not change and neither does the Workers deployment:
+`bun run deploy` is the same command it was. What is new sits beside it —
+`bun run build:server`, a Dockerfile, `deploy/k8s`.
+
+Moving a Workers deployment to a server is a copy of the data rather than
+a migration of the schema. D1's export carries `CREATE TABLE` statements
+without `IF NOT EXISTS`, so it has to land in a file that does not exist
+yet — before the container's first start, not after it:
+
+```sh
+bunx wrangler d1 export nabiz --remote --output nabiz.sql
+docker run --rm -v nabiz:/data -v "$PWD":/in oven/bun:1.3.14-alpine bun -e '
+  import { Database } from "bun:sqlite"
+  import { readFileSync } from "node:fs"
+  new Database("/data/nabiz.db").exec(readFileSync("/in/nabiz.sql", "utf8"))
+'
+```
+
+The container applies `schema.sql` on every start, which is additive and
+does nothing to tables the export already made.
