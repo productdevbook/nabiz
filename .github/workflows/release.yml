@@ -31,6 +31,9 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
+            # Run by hand on a branch there is no version to name it
+            # after, and a push with no tag at all is an error.
+            type=raw,value=edge,enable=${{ github.ref_type != 'tag' }}
       # Built for this runner first and asked the two questions it
       # promises to answer: a tag can be put on any commit, and a release
       # nobody started is a release nobody checked.
