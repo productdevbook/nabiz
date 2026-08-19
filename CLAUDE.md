@@ -93,5 +93,5 @@ Icons are Lucide paths inlined in the markup; no icon dependency.
   share a project — that is why there are two.
 - Astro components are type-checked by the build, not by tsc; `bun run
   build:server` is the second half of that check.
-- Formatting is oxfmt with `semi: false`; lint is oxlint. CI runs both
-  with `--deny-warnings` and `--check`.
+- Formatting is oxfmt with `semi: false`; lint is oxlint. Both refuse
+  warnings, locally and in CI — `bun run check` is what CI runs.

@@ -50,7 +50,9 @@ const body = (raw: string) =>
 
 describe("a body that is not an object is a bad request", () => {
   test("null, a string and a list are all refused with 400", async () => {
-    for (const raw of ["null", '"a notice"', "[1, 2]", "{"])
-      expect((await postNotice(body(raw), nowhere)).status).toBe(400)
+    const answers = await Promise.all(
+      ["null", '"a notice"', "[1, 2]", "{"].map((raw) => postNotice(body(raw), nowhere)),
+    )
+    expect(answers.map((r) => r.status)).toEqual([400, 400, 400, 400])
   })
 })
