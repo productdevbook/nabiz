@@ -10,9 +10,6 @@ const astro = readFileSync(new URL("../src/pages/index.astro", import.meta.url),
 const inline = [...astro.matchAll(/<script[^>]*is:inline[\s\S]*?>([\s\S]*?)<\/script>/g)]
 const script = inline.at(-1)?.[1] ?? ""
 
-const LABELS =
-  'var resolveLabel="R", failedLabel="F", throttledLabel="T", rejectedLabel="J", offlineLabel="O";'
-
 const BODY = `
   <div class="top"><button id="theme"></button><select id="lang">
     <option value="tr" selected>T</option><option value="de">D</option><option value="fr">F</option>
