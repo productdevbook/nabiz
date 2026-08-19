@@ -28,6 +28,13 @@
     --meh: #bd7b18;
     --bad: #d0453b;
     --acc: #3b6ee0;
+    /* The hue written on its own tint, taken towards black until it reads
+       at 4.5:1 on a white panel. Dark needs none of this and takes the hue
+       itself; a mixed colour here would fall back to solid black where
+       color-mix is missing, which is the worst of both themes. */
+    --ink-acc: #2a4fa1;
+    --ink-meh: #885911;
+    --ink-bad: #96322a;
     --bg: #f4f6f5;
     --panel: #ffffff;
     --fg: #171d1a;
@@ -42,6 +49,9 @@
       --meh: #e8a558;
       --bad: #ef7166;
       --acc: #7195ee;
+      --ink-acc: var(--acc);
+      --ink-meh: var(--meh);
+      --ink-bad: var(--bad);
       --bg: #101413;
       --panel: #1b201e;
       --fg: #e9edeb;
@@ -57,6 +67,9 @@
     --meh: #e8a558;
     --bad: #ef7166;
     --acc: #7195ee;
+    --ink-acc: var(--acc);
+    --ink-meh: var(--meh);
+    --ink-bad: var(--bad);
     --bg: #101413;
     --panel: #1b201e;
     --fg: #e9edeb;
@@ -413,9 +426,6 @@
     filter: brightness(1.12);
   }
   @media (prefers-reduced-motion: reduce) {
-    dialog[open] {
-      animation: none;
-    }
     .bars i,
     .bars i:hover {
       transition: none;
@@ -528,6 +538,13 @@
   dialog[open] {
     animation: rise 0.18s ease-out;
   }
+  /* After the rule it overrides, not before it: same specificity, and the
+     cascade takes the last one. */
+  @media (prefers-reduced-motion: reduce) {
+    dialog[open] {
+      animation: none;
+    }
+  }
   dialog h3 {
     @apply mb-4 text-[16px] font-semibold tracking-[-0.2px];
   }
@@ -541,19 +558,22 @@
     transition: all 0.13s;
   }
   .seg button.on {
-    color: var(--seg, var(--fg));
+    color: var(--seg-ink, var(--fg));
     background: color-mix(in srgb, var(--seg, var(--fg)) 14%, var(--panel));
     border-color: var(--seg, var(--fg));
   }
   .seg button.on.info,
   .seg button.on.maintenance {
     --seg: var(--acc);
+    --seg-ink: var(--ink-acc);
   }
   .seg button.on.degraded {
     --seg: var(--meh);
+    --seg-ink: var(--ink-meh);
   }
   .seg button.on.outage {
     --seg: var(--bad);
+    --seg-ink: var(--ink-bad);
   }
   dialog textarea {
     @apply border-line text-fg mb-2.5 w-full resize-y rounded-[8px] border p-3.5 text-[13.5px] leading-[1.6];
