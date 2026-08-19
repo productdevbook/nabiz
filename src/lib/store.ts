@@ -115,11 +115,22 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
 }
 
 /** Raw checks feed only the current-latency figure; two days is plenty.
- *  Events tell a longer story and get half a year. */
+ *  Events tell a longer story and get half a year.
+ *
+ *  A deleted monitor leaves its rows behind, and `monitors.id` is a rowid —
+ *  SQLite hands the freed one to the next monitor inserted, which would
+ *  then wear a stranger's uptime. The sweep is what stops that history
+ *  from finding a new owner. */
 export async function prune(db: Db): Promise<void> {
+  const orphans = (table: string) =>
+    db.prepare(`DELETE FROM ${table} WHERE monitor_id NOT IN (SELECT id FROM monitors)`)
   await db.batch([
     db.prepare("DELETE FROM checks WHERE at < ?").bind(Date.now() - 2 * 24 * 3600 * 1000),
     db.prepare("DELETE FROM events WHERE at < ?").bind(Date.now() - 180 * 24 * 3600 * 1000),
+    orphans("checks"),
+    orphans("days"),
+    orphans("events"),
+    orphans("state"),
   ])
 }
 
@@ -130,8 +141,15 @@ export interface EventRow {
 }
 
 export async function recentEvents(db: Db, limit: number): Promise<EventRow[]> {
+  // Joined rather than filtered afterwards: a disabled monitor's events are
+  // not shown, and taking the limit first let a flapping one nobody watches
+  // any more push every visible event off the page.
   const { results } = await db
-    .prepare("SELECT monitor_id, at, ok FROM events ORDER BY at DESC LIMIT ?")
+    .prepare(
+      `SELECT e.monitor_id, e.at, e.ok FROM events e
+       JOIN monitors m ON m.id = e.monitor_id AND m.enabled = 1
+       ORDER BY e.at DESC LIMIT ?`,
+    )
     .bind(limit)
     .all<EventRow>()
   return results

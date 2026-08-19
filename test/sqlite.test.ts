@@ -3,7 +3,16 @@ import { readFileSync } from "node:fs"
 
 import type { Monitor } from "../src/lib/probe.ts"
 import { openSqlite } from "../src/lib/sqlite.ts"
-import { addNotice, forPage, monitors, notices, record, resolveNotice } from "../src/lib/store.ts"
+import {
+  addNotice,
+  forPage,
+  monitors,
+  notices,
+  prune,
+  record,
+  recentEvents,
+  resolveNotice,
+} from "../src/lib/store.ts"
 
 const schema = readFileSync(new URL("../schema.sql", import.meta.url), "utf8")
 
@@ -69,6 +78,48 @@ describe("the same store, on a file instead of D1", () => {
     expect((await notices(db, 10, "de")).length).toBe(0)
     expect(await resolveNotice(db, id)).toBe(true)
     expect(await resolveNotice(db, id)).toBe(false)
+    await db.close()
+  })
+
+  test("a disabled monitor's events do not push the watched ones off the page", async () => {
+    const db = await fresh()
+    await db.exec(seed("api"))
+    await db.exec(seed("flapper"))
+    const [api, flapper] = await monitors(db)
+
+    // The flapping one wrote an event a minute; the API's outage is older
+    // than all of them, and taking the limit first would lose it.
+    const flaps = Array.from(
+      { length: 12 },
+      (_, i) => `(${(flapper as Monitor).id}, ${2000 + i}, ${i % 2})`,
+    ).join(", ")
+    await db.exec(
+      `INSERT INTO events (monitor_id, at, ok) VALUES (${(api as Monitor).id}, 1000, 0), ${flaps}`,
+    )
+    await db.exec(`UPDATE monitors SET enabled = 0 WHERE slug = 'flapper'`)
+
+    const recent = await recentEvents(db, 10)
+    expect(recent.length).toBe(1)
+    expect(recent[0]?.monitor_id).toBe((api as Monitor).id)
+    await db.close()
+  })
+
+  test("a deleted monitor's history is not handed to the next one added", async () => {
+    const db = await fresh()
+    await db.exec(seed("gone"))
+    const [gone] = await monitors(db)
+    await record(db, [result(gone as Monitor, false)])
+    await db.exec(`DELETE FROM monitors WHERE slug = 'gone'`)
+    await prune(db)
+
+    // SQLite hands the freed rowid to the next insert; without the sweep
+    // this monitor would open with a stranger's failed day behind it.
+    await db.exec(seed("new"))
+    const [fresher] = await monitors(db)
+    expect((fresher as Monitor).id).toBe((gone as Monitor).id)
+    const data = await forPage(db, 90)
+    expect(data.days.get((fresher as Monitor).id) ?? []).toEqual([])
+    expect(data.states.get((fresher as Monitor).id)).toBeUndefined()
     await db.close()
   })
 

@@ -5,7 +5,8 @@ import { openSqlite, type SqliteDb } from "../lib/sqlite.ts"
 // runner beside it; one process must still mean one database handle.
 const held = globalThis as { nabizDb?: SqliteDb }
 
-export const DB_PATH = process.env.NABIZ_DB ?? "/data/nabiz.db"
+// The container names its own path; a checkout has no /data to fail on.
+export const DB_PATH = process.env.NABIZ_DB ?? "./nabiz.db"
 
 export const db: SqliteDb = (held.nabizDb ??= openSqlite(DB_PATH))
 

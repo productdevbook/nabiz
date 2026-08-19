@@ -7,6 +7,7 @@ declare module "bun:test" {
     toHaveLength(n: number): void
     toBeNull(): void
     toBeDefined(): void
+    toBeUndefined(): void
     toBeGreaterThan(n: number): void
     toBeCloseTo(n: number): void
     toThrow(): void
