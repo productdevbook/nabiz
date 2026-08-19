@@ -43,3 +43,6 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/)" = "200"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/health)" = "204"
           docker logs nabiz-ci
+      # The manifests point at this image and are otherwise never run
+      # here; at least they have to still build.
+      - run: kubectl kustomize deploy/k8s > /dev/null
