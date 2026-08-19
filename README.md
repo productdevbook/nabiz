@@ -80,6 +80,7 @@ next — see [Monitors](docs/monitors.md).
 | [Configuration](docs/configuration.md) | every variable, on both runtimes |
 | [API](docs/api.md) | JSON, RSS, badge, notices, machine access |
 | [Upgrading](docs/UPGRADING.md) | schema additions, moving between runtimes |
+| [Installing with an agent](docs/agent-install.md) | a runbook: commands, checks, and what each error means |
 
 ## Development
 
