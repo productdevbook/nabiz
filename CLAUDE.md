@@ -60,6 +60,8 @@ The local D1 lives under `.wrangler/state/`; create it once with
 - Relative imports carry the `.ts` extension: Node runs the server entry
   straight from source and does not guess extensions.
 - Comments only for what the code cannot say. Commit messages say why.
+- Release notes are headings and bullets, one line each, scannable in ten
+  seconds. The reasoning belongs in the commit message, not the release.
 
 ## The design system (src/styles.css)
 
