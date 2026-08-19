@@ -28,7 +28,9 @@ the cron was, SQLite where D1 was. `src/server/index.ts` is that entry.
     deploy/k8s/          plain manifests, one replica by design
     docs/                one page per subject; the README is a landing
                          page and links to them rather than growing
-    test/                bun tests against a fake D1 and a real SQLite
+    test/                bun tests against a fake D1 and a real SQLite,
+                         and page.test.ts, which runs the page's own
+                         inline script in a DOM
 
 ## Commands
 
