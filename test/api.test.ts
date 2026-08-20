@@ -93,6 +93,7 @@ const page = (monitors: Monitor[]): PageData => ({
   days: new Map(),
   latency: new Map(),
   spark: new Map(),
+  wrote: null,
 })
 
 const notice = (text: string): Notice => ({
@@ -177,5 +178,20 @@ describe("llms.txt is the shape the specification asks for", () => {
 
     // Every section is an h2; the file has no deeper headings to skip.
     expect(lines.filter((l) => l.startsWith("#")).filter((l) => !/^(# |## )/.test(l))).toEqual([])
+  })
+})
+
+describe("the page says when it last learned anything", () => {
+  test("updated_at is the last write, not the render", async () => {
+    const { statusJson } = await import("../src/lib/api.ts")
+    const data = { ...page([]), wrote: 1_700_000_000_000 }
+    const body = (await statusJson(data, []).json()) as { updated_at: string | null }
+    expect(body.updated_at).toBe("2023-11-14T22:13:20.000Z")
+  })
+
+  test("a page that has never written says so rather than saying now", async () => {
+    const { statusJson } = await import("../src/lib/api.ts")
+    const body = (await statusJson(page([]), []).json()) as { updated_at: string | null }
+    expect(body.updated_at).toBeNull()
   })
 })

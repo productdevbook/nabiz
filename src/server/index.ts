@@ -123,12 +123,21 @@ async function main(): Promise<void> {
   // the write-ahead log and the shared-memory file inherit it.
   process.umask(0o077)
 
-  // Additive and idempotent, the same file the Workers deployment runs.
-  await db.exec(await readFile(schemaFile, "utf8"))
-  // The umask covers what this process creates; a file that arrived by
-  // some other route — a copy out of D1, a restored backup — is narrowed
-  // here. Somebody else's file is theirs to set.
+  // Before the database is opened, not after: SQLite copies the database
+  // file's mode onto the write-ahead log when it creates it, so a file that
+  // arrived by some other route — a copy out of D1, a restored backup —
+  // would otherwise leave its log world-readable with the URLs in it.
   await chmod(DB_PATH, 0o600).catch(() => {})
+
+  // Additive and idempotent, the same file the Workers deployment runs.
+  try {
+    await db.exec(await readFile(schemaFile, "utf8"))
+  } catch (error) {
+    // The one line that names the file only prints on success, so a
+    // read-only mount or a root-owned database says nothing about where.
+    console.error(`[nabiz] cannot open the database at ${DB_PATH} —`, error)
+    throw error
+  }
 
   const built = await stat(entryFile).catch(() => null)
   if (built === null) {

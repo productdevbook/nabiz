@@ -170,13 +170,18 @@ export interface PageData {
   /** Last day of successful-probe latency, averaged into hours — 24
    *  points draw a legible shape where 96 drew noise. */
   spark: Map<number, number[]>
+  /** When a probe last wrote anything. The page says it was updated then,
+   *  which is a different claim from "this page rendered just now" — and
+   *  the difference is exactly what a full disk or a stopped loop looks
+   *  like from outside. */
+  wrote: number | null
 }
 
 export async function forPage(db: Db, window: number): Promise<PageData> {
   const all = await monitors(db)
   const since = new Date(Date.now() - window * 24 * 3600 * 1000).toISOString().slice(0, 10)
 
-  const [statesQ, daysQ, latencyQ, sparkQ] = await db.batch<never>([
+  const [statesQ, daysQ, latencyQ, sparkQ, wroteQ] = await db.batch<never>([
     db.prepare("SELECT monitor_id, ok FROM state"),
     db.prepare("SELECT * FROM days WHERE day >= ? ORDER BY day").bind(since),
     db
@@ -188,12 +193,14 @@ export async function forPage(db: Db, window: number): Promise<PageData> {
          FROM checks WHERE ok = 1 AND at > ? GROUP BY monitor_id, bucket ORDER BY bucket`,
       )
       .bind(Date.now() - 24 * 3600 * 1000),
+    db.prepare("SELECT MAX(at) AS at FROM checks"),
   ])
   if (
     statesQ === undefined ||
     daysQ === undefined ||
     latencyQ === undefined ||
-    sparkQ === undefined
+    sparkQ === undefined ||
+    wroteQ === undefined
   )
     throw new Error("the batch came back short, which D1 does not do")
 
@@ -220,7 +227,9 @@ export async function forPage(db: Db, window: number): Promise<PageData> {
     spark.set(p.monitor_id, list)
   }
 
-  return { monitors: all, states, days, latency, spark }
+  const wrote = (wroteQ.results as unknown as { at: number | null }[])[0]?.at ?? null
+
+  return { monitors: all, states, days, latency, spark, wrote }
 }
 
 export interface Notice {

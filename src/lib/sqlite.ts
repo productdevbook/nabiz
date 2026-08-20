@@ -24,11 +24,14 @@ export interface SqliteDb extends Db {
 }
 
 // WAL so a read during a write is not a locked database; a wait rather
-// than an error when two writes do meet.
+// than an error when two writes do meet. FULL because this writes once a
+// minute: the fsync costs nothing at that rate, and without it a power cut
+// takes every round since the last checkpoint rather than the one in
+// flight — a status page that forgets an outage is worse than a slow one.
 const PRAGMAS = [
   "PRAGMA journal_mode = WAL",
   "PRAGMA busy_timeout = 5000",
-  "PRAGMA synchronous = NORMAL",
+  "PRAGMA synchronous = FULL",
 ]
 
 const changesOf = (r: { changes?: number | bigint }): number => Number(r.changes ?? 0)

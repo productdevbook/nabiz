@@ -27,6 +27,12 @@ rest carry no words to translate.
 
 ## Reading status.json
 
+`updated_at` is when a probe last wrote anything, not when the response
+was rendered — so a page whose probe loop has stopped, or whose disk is
+full, goes stale in that field while everything else still answers. It is
+`null` before the first probe. Watching it is how a machine tells a
+working status page from a frozen one; `/health` cannot, by design.
+
 `status` is one of four for the whole page: `up`; `sites` when only some
 of the hosted sites are unreachable and everything else is serving;
 `degraded` when a service is down; `down` when nothing answers.

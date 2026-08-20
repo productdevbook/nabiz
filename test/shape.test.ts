@@ -35,6 +35,7 @@ function data(monitors: Monitor[], states: [number, boolean][]): PageData {
     days: new Map(),
     latency: new Map(),
     spark: new Map(),
+    wrote: null,
   }
 }
 
@@ -121,10 +122,11 @@ describe("one customer's site is not every customer's site", () => {
     ])
     const list = rows({
       monitors: members,
-      states: new Map(members.map((m) => [m.id, { ok: m.id !== 5, since: 0 }])),
+      states: new Map(members.map((m) => [m.id, { ok: m.id !== 5 }])),
       days,
       latency: new Map(),
       spark: new Map(),
+      wrote: null,
     })
     // The median member had a perfect day, so the group's day is perfect.
     expect(uptimeOf(list[0]?.days ?? [])).toBe(100)
@@ -133,13 +135,14 @@ describe("one customer's site is not every customer's site", () => {
   test("half or more unreachable is the machine's problem, fewer is not", () => {
     const shape = (up: number, total: number) => {
       const monitors = hosted(total)
-      const states = new Map(monitors.map((m, i) => [m.id, { ok: i < up, since: 0 }]))
+      const states = new Map(monitors.map((m, i) => [m.id, { ok: i < up }]))
       return rows({
         monitors,
         states,
         days: new Map(),
         latency: new Map(),
         spark: new Map(),
+        wrote: null,
       })[0]
     }
 

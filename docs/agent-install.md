@@ -88,6 +88,7 @@ timeout — not a broken install.
 
 | What you see | What it means | What to do |
 |---|---|---|
+| `unable to open database file` | the directory is not writable — a read-only mount, or `NABIZ_DB` pointing somewhere that does not exist | the line above it names the path; mount `/data` writable, or set `NABIZ_DB` to somewhere that is |
 | `attempt to write a readonly database` | the volume or file is owned by another user — usually a `docker run` that touched it as root | run such commands with `--user 1000:1000`, or `chown -R 1000:1000` the volume |
 | `[nabiz] no built site at …` | running from a checkout without building | `bun run build:server` |
 | `… did not load — if the last build was bun run build` | `dist/` holds the Worker build, not the server one | `bun run build:server` |

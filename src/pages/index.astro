@@ -109,7 +109,7 @@ Astro.response.headers.set(
       </span>
       <div class="hero-t">
         <p class="hero-s">{t(lang, banner)}</p>
-        <p class="hero-m">{t(lang, "updated")} · {when(Date.now())}</p>
+        <p class="hero-m">{t(lang, "updated")} · {data.wrote === null ? t(lang, "no_data") : when(data.wrote)}</p>
       </div>
       <svg class="ekg" viewBox="0 0 600 44" preserveAspectRatio="none" aria-hidden="true">
         <path

@@ -56,7 +56,13 @@ has to exist already.
   `NABIZ_INTERVAL_MS` (60000).
 - It runs as an unprivileged user and works with a read-only root
   filesystem; `/data` is the only path it needs to write.
-- The database and its write-ahead log are created `0600`.
+- The database and its write-ahead log are `0600`, including one that
+  arrived from a backup or a D1 export — the file is narrowed before it is
+  opened, because SQLite copies its mode onto the log it creates beside it.
+- `/health` answers as long as the process does. It cannot see a database
+  that has stopped accepting writes: for that, read `updated_at` in
+  `/api/status.json`, which is when a probe last wrote rather than when the
+  page rendered.
 
 ## Backups
 
@@ -69,6 +75,25 @@ docker exec nabiz bun -e "
 "
 docker cp nabiz:/tmp/nabiz-backup.db ./nabiz-backup.db
 ```
+
+## Restoring one
+
+The backup is a database file, so restoring it is putting that file where
+nabiz looks — into a volume that does not have one yet, before the first
+start. Use nabiz's own image and user: a fresh named volume belongs to
+root until an image that owns `/data` mounts it, and a file written by
+anybody else is a file the container cannot open.
+
+```sh
+docker run --rm --user 1000:1000 -v nabiz:/data -v "$PWD":/in \
+  ghcr.io/productdevbook/nabiz:latest \
+  cp /in/nabiz-backup.db /data/nabiz.db
+docker start nabiz
+```
+
+The schema is applied on start, so a backup from an older version comes up
+with whatever the new one adds. Delete the copy you took out of the
+container afterwards — it carries the URLs of everything you watch.
 
 ## Behind a proxy
 

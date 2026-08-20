@@ -42,7 +42,9 @@ export function statusJson(data: PageData, events: EventRow[]): Response {
   const state = overall(list)
   const res = json({
     status: state,
-    updated_at: new Date().toISOString(),
+    // When a probe last wrote, not when this rendered: a page whose loop
+    // has stopped must not keep saying it was updated a second ago.
+    updated_at: data.wrote === null ? null : new Date(data.wrote).toISOString(),
     monitors: list.map((r) => {
       const m: Record<string, unknown> = {
         name: r.name,

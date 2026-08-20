@@ -88,6 +88,14 @@ database — every monitor checked twice a minute, writes queued behind each
 other's locks, and on network storage, where SQLite's locking is not
 dependable, a file that can end up corrupt. It scales nothing.
 
+The part you notice first is not the doubled probes. Two loops racing over
+one `state` table turn a flapping monitor into phantom flaps: measured on
+a local volume, five real outage-and-recovery cycles produced twenty
+webhook messages and twenty-two rows in `events`, including a "down" alert
+three hundred milliseconds after the "recovered" for an outage that had
+already ended. The page then shows an outage that never happened, and
+somebody is woken for it.
+
 A status page does not need horizontal scale — a rollout or a node drain
 costs a few seconds of downtime on the page, and the probe history it
 misses is the gap you would see on any restart. If that matters, put the
