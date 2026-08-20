@@ -491,3 +491,39 @@ describe("a group never publishes one customer's outage as its own", () => {
     expect(list[0]?.partial).toBe(true)
   })
 })
+
+describe("a group's history is nobody's bad day alone", () => {
+  const groupOf = (oks: number[]): Row | undefined => {
+    const members = oks.map(() => monitor({ grouped: 1, group_name: "Hosted sites" }))
+    const base = data(
+      members,
+      members.map((m) => [m.id, true] as [number, boolean]),
+    )
+    base.days = new Map(
+      members.map((m, i) => [
+        m.id,
+        [{ monitor_id: m.id, day: "2026-08-20", total: 100, ok: oks[i] as number, ms_sum: 2000 }],
+      ]),
+    )
+    return rows(base)[0]
+  }
+
+  test("one member's bad day is not the group's, at any size", () => {
+    // The same rule the state line follows: half of a group of two is one
+    // customer, and one customer's outage is not the group's to publish.
+    expect(groupOf([100, 40])?.days?.[0]?.ok).toBe(100)
+    expect(groupOf([100, 100, 40])?.days?.[0]?.ok).toBe(100)
+    expect(groupOf([100, 100, 100, 40])?.days?.[0]?.ok).toBe(100)
+  })
+
+  test("two of them is a bad day, and the group says so", () => {
+    expect(groupOf([100, 40, 40])?.days?.[0]?.ok).toBe(40)
+    expect(groupOf([100, 100, 40, 40])?.days?.[0]?.ok).toBe(40)
+  })
+
+  test("what is published is a real member's row, never an average", () => {
+    const only = groupOf([100, 90, 30])?.days?.[0]
+    expect([100, 90, 30]).toContain(only?.ok)
+    expect(only?.total).toBe(100)
+  })
+})

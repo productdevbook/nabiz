@@ -21,7 +21,7 @@ export interface Row {
   partial: boolean
   days: DayRow[]
   latency: number | null
-  spark: number[] | null
+  spark: (number | null)[] | null
 }
 
 /** How much of a group has to be unreachable before the group is called
@@ -80,7 +80,12 @@ function medianDays(lists: DayRow[][]): DayRow[] {
     // The median member's own day, counts and timings and all: a made-up
     // denominator would be a number no probe produced, and history.json
     // would publish it as if one had.
-    const middle = ranked[(ranked.length - 1) >> 1] as DayRow
+    //
+    // Never worse than the second-worst, which is the same rule the state
+    // line follows: half of a group of two is one customer, and taking the
+    // lower of two middles published that customer's bad day as the whole
+    // group's. Two bad members still make a bad day; one never does.
+    const middle = ranked[Math.max(GROUP_LEAST - 1, (ranked.length - 1) >> 1)] as DayRow
     out.push({ ...middle, monitor_id: 0 })
   }
   return out.toSorted((a, b) => (a.day < b.day ? -1 : 1))
