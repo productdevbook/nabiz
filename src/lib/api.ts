@@ -266,9 +266,10 @@ was answered with, and "reason" when the code does not say it: "timeout",
 promised status with the wrong words in it. A group carries neither: it
 speaks for several hosts and publishes none of their answers. A grouped monitor speaks for several hosts and says only
 how it is: "degraded" while some of them are unreachable, "down" once half
-or more are. How many there are is not published — that number is a
-customer count. Its uptime and its days are the median member's rather
-than a total, so one host's outage is not billed to the others.
+or more are, and never on one host alone. How many there are is not
+published — that number is a customer count. Each day it publishes is a
+real member's day rather than a total: the median one, never worse than
+the second-worst, so one host's bad day is not billed to the others.
 
 ## Writing
 

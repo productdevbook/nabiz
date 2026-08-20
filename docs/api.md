@@ -44,7 +44,9 @@ working status page from a frozen one; `/health` cannot, by design.
 
 `history.json`'s `avg_ms` averages every probe of that day, a failed one's
 timeout included; `status.json`'s `latency_ms` is the last **successful**
-probe. A monitor that has never answered therefore has an `avg_ms` and no
+probe of the last hour — a monitor that last answered longer ago than that
+carries no `latency_ms` at all, and neither does one on an interval longer
+than an hour. A monitor that has never answered therefore has an `avg_ms` and no
 `latency_ms`, and the two figures are not comparable.
 
 Both are time to the answer — the status and its headers — not time to the
@@ -72,13 +74,18 @@ was answered with, and `reason` when the code does not say it:
 | `body` | the promised status arrived without the words `expect_body` asks for |
 
 `uptime_90d` is a percent, `null` before the first day of data, and
-`latency_ms` comes from the most recent successful probe.
+`latency_ms` comes from the most recent successful probe **of the last
+hour** — a monitor that last answered longer ago than that carries none,
+and so does every monitor on an interval longer than an hour.
 
 A group says only how it is; how many hosts it speaks for is not
-published. Its `uptime_90d` and its days in `history.json` are the median
-member's rather than a total, so one member's outage does not become
-everyone's history — and a day fewer than half the members have data for
-is left out rather than guessed at.
+published. Each day in its `history.json` is a real member's day rather
+than a total — the median one, and never worse than the second-worst, so
+one member's bad day does not become everyone's history and two members'
+does. A day fewer than half the members have data for is left out rather
+than guessed at. Different days can come from different members, so
+`uptime_90d` over the window is the group's figure rather than any one
+member's.
 
 ## Notices
 

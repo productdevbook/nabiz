@@ -75,6 +75,11 @@ bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE state ADD COLUMN 
 # v3.6 → v3.7 — why a monitor is down, when the status code does not say it
 bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE state ADD COLUMN last_reason TEXT"
 
+# v3.11 → v3.12 — when a run of failures began, so a recovery message can
+# count the outage from the probe that failed rather than from the round
+# that admitted it
+bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE state ADD COLUMN fail_at INTEGER"
+
 # v3.9 → v3.10 — the index the hourly sweep uses to keep the column below
 # true when a monitor is moved into a group or out of one
 bunx wrangler d1 execute nabiz --remote --command "CREATE INDEX IF NOT EXISTS events_by_monitor ON events (monitor_id, grouped)"
