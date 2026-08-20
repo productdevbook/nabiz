@@ -56,7 +56,9 @@ one only the cluster can resolve, which is the point:
 
 A monitor with `grouped = 1` is never named on the page, in the API or in
 the feed. Its group is one row that says how it is and nothing else:
-degraded while some members are unreachable, down once half or more are.
+degraded while some members are unreachable, down once half or more are —
+so a group of two is down the moment either of them is, and the "one site
+of five" reading starts at three members.
 Not how many members there are, not which — a public status page does not
 have to be a public customer list.
 
@@ -66,7 +68,9 @@ a name and the row moves to it.
 
 The group's ninety days and its uptime figure are the median member's, so
 one site's bad afternoon is not billed to everyone else's history; a day
-fewer than half the members have data for is not published at all.
+fewer than half the members have data for is not published at all. The
+events list follows the same rule: a line appears when the group itself
+went down or came back, never when one member did.
 
 ## Turning one off
 
