@@ -29,12 +29,17 @@ export interface ProbeResult {
 }
 
 /** A probe's own timeout, and the round's if it has one: a monitor with a
- *  generous timeout must not be able to hold the round past the next one. */
-function within(timeout: number, deadline?: AbortSignal): AbortSignal {
+ *  generous timeout must not be able to hold the round past the next one.
+ *  Both are returned, because which of them fired is the difference
+ *  between the host being slow and us being early. */
+function within(
+  timeout: number,
+  deadline?: AbortSignal,
+): { own: AbortSignal; signal: AbortSignal } {
   const own = AbortSignal.timeout(timeout)
-  if (deadline === undefined) return own
+  if (deadline === undefined) return { own, signal: own }
   const any = (AbortSignal as { any?: (list: AbortSignal[]) => AbortSignal }).any
-  return any === undefined ? own : any([own, deadline])
+  return { own, signal: any === undefined ? own : any([own, deadline]) }
 }
 
 /** How much of a body is read before the rest is dropped. A page that
@@ -67,7 +72,7 @@ async function firstOf(response: Response, cap: number): Promise<string> {
 // not a detour to take quietly.
 export async function probe(monitor: Monitor, deadline?: AbortSignal): Promise<ProbeResult> {
   const started = Date.now()
-  const signal = within(monitor.timeout_ms, deadline)
+  const { own, signal } = within(monitor.timeout_ms, deadline)
   // Kept outside the try: an answer that arrived and then stopped is not
   // the same as no answer, and the catch cannot see it otherwise.
   let code: number | null = null
@@ -106,16 +111,25 @@ export async function probe(monitor: Monitor, deadline?: AbortSignal): Promise<P
   } catch {
     // Our own signal stopped it, or the connection never happened. Both
     // runtimes agree on that much and on nothing finer — except that an
-    // answer we had already been given is not "nothing answered". A clock
-    // that ran out is a timeout whether or not a status arrived first:
-    // reporting "answered, then stopped" about our own deadline blames the
-    // host for a budget it never saw.
+    // answer we had already been given is not "nothing answered".
+    //
+    // The monitor's timeout is the only clock this page may blame it for.
+    // When the round's deadline is what fired, a host that had already
+    // answered gets "answered, then stopped" and one that had not gets
+    // "timed out" — saying its own timeout elapsed when it did not is
+    // telling the reader something untrue about somebody else's server.
     return {
       monitor,
       ok: false,
       status: code,
       ms: Date.now() - started,
-      reason: signal.aborted ? "timeout" : code !== null ? "incomplete" : "unreachable",
+      reason: own.aborted
+        ? "timeout"
+        : code !== null
+          ? "incomplete"
+          : signal.aborted
+            ? "timeout"
+            : "unreachable",
     }
   }
 }

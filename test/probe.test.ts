@@ -297,3 +297,47 @@ describe("a body is read, and only so much of it", () => {
     }
   })
 })
+
+/** An origin that answers at once and then never sends its body. */
+function stalling() {
+  const real = globalThis.fetch
+  globalThis.fetch = ((_url: string, init: { signal?: AbortSignal }) => {
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        return new Promise((_, fail) =>
+          init.signal?.addEventListener("abort", () => {
+            controller.error(new Error("aborted"))
+            fail(new Error("aborted"))
+          }),
+        )
+      },
+    })
+    return Promise.resolve(new Response(body, { status: 200 }))
+  }) as unknown as typeof globalThis.fetch
+  return () => (globalThis.fetch = real)
+}
+
+describe("whose clock ran out", () => {
+  test("the monitor's own timeout is the monitor's to answer for", async () => {
+    const done = stalling()
+    try {
+      const r = await probe(monitor({ timeout_ms: 40 }), AbortSignal.timeout(5_000))
+      expect(r.reason).toBe("timeout")
+    } finally {
+      done()
+    }
+  })
+
+  test("the round's deadline is not", async () => {
+    // A host that answered in milliseconds, a generous timeout it never
+    // came close to, and a round that had to end: it did not time out.
+    const done = stalling()
+    try {
+      const r = await probe(monitor({ timeout_ms: 60_000 }), AbortSignal.timeout(40))
+      expect(r.status).toBe(200)
+      expect(r.reason).toBe("incomplete")
+    } finally {
+      done()
+    }
+  })
+})
