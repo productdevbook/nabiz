@@ -58,6 +58,9 @@ bunx wrangler d1 execute nabiz --remote --command "DROP INDEX IF EXISTS checks_b
 # v3.4 → v3.5 — what the last probe answered, so a down row can say which
 # kind of down it is
 bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE state ADD COLUMN last_status INTEGER"
+
+# v3.6 → v3.7 — why a monitor is down, when the status code does not say it
+bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE state ADD COLUMN last_reason TEXT"
 ```
 
 Running them all against a database that is already current is safe — the
