@@ -121,7 +121,7 @@ function illFormed(xml: string): string[] {
   return wrong
 }
 
-const items = (xml: string) => xml.split("<item>").length - 1
+const itemCount = (xml: string) => xml.split("<item>").length - 1
 
 describe("the feed stays readable whatever is written into it", () => {
   test("a name that closes its own tag does not become an item of its own", async () => {
@@ -136,7 +136,7 @@ describe("the feed stays readable whatever is written into it", () => {
       "en",
     ).text()
     expect(illFormed(xml)).toEqual([])
-    expect(items(xml)).toBe(1)
+    expect(itemCount(xml)).toBe(1)
     expect(xml).toContain("&lt;/title&gt;&lt;/item&gt;")
   })
 
