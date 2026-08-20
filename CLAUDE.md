@@ -77,6 +77,9 @@ The local D1 lives under `.wrangler/state/`; create it once with
   Pull request titles are the same shape.
 - Release notes are headings and bullets, one line each, scannable in ten
   seconds. The reasoning belongs in the commit message, not the release.
+  No opening paragraph, no account of how something was found, no table
+  where a bullet does, no horizontal rules. A bullet states what was wrong
+  and what it is now; a measurement is a number in that bullet.
 
 ## The design system (src/styles.css)
 
