@@ -23,6 +23,13 @@ From [`schema.sql`](../schema.sql):
 | `enabled` | `1` | `0` removes it from the page and the API entirely |
 | `position` | `0` | the order on the page |
 
+Moving a service into a group, or out of one, is an edit to `grouped` and
+nothing else — the events already written carry a copy of that flag, and
+the hourly sweep sets every one of them back to what the column says. The
+page reads a window of grouped events and a window of named ones, and
+until that sweep runs the moved service's history is counted in the window
+it left.
+
 A row written by hand is on the page at the next probe round, not at the
 next reload: what a reader sets is dropped when a round writes, and a
 round is the only thing that writes when you edit the table underneath it.

@@ -22,8 +22,9 @@ rest carry no words to translate.
 - `/` and `/api/status.json` carry an `x-status` header — `up`, `sites`,
   `degraded` or `down`. A `HEAD /` is enough to read the overall state.
 - `HEAD /health` carries `x-nabiz`, the version of nabiz that is
-  answering. It is the only way to ask a running deployment which build it
-  is; nothing else it serves says so.
+  answering — the cheapest way to ask a running deployment which build it
+  is, and the only one that works while the page is failing. `llms.txt`
+  names the same version in its summary.
 - `GET /` with `Accept: application/json` (and no `text/html`) returns the
   `status.json` body instead of HTML.
 - A `Link` header on the HTML `/` points to `llms.txt`, the JSON and the

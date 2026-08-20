@@ -3,8 +3,9 @@ import type { APIRoute } from "astro"
 import { VERSION } from "../lib/version.ts"
 
 // Alive as long as the worker answers — the one endpoint with no database
-// behind it, so the watchers can watch the watcher. CORS-open and uncached
-// like every other read here, so a page somewhere else can ask too.
+// behind it, so the watchers can watch the watcher. CORS-open so a page
+// somewhere else can ask, and held by nothing: everything else here reads
+// through a page the store holds for a window.
 export const GET: APIRoute = () =>
   new Response(null, {
     status: 204,

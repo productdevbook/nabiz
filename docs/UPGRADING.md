@@ -23,11 +23,18 @@ Nothing below has to be run by hand there. It is listed because a
 Cloudflare deployment has no start to do it at: `wrangler d1 execute --file
 schema.sql` adds tables and indexes and **cannot add a column to a table
 that already exists**, so re-running it is not an upgrade. Run whichever of
-these your D1 database is missing.
+these your D1 database is missing — and run them **before** you re-apply
+`schema.sql`, not after: that file carries indexes over columns these
+statements add, and one statement failing takes the rest of the file with
+it. It is the order a container uses for the same reason.
 
-If you skip them, the deployment does not stop: it starts, `/health`
-answers 204, and everything that reads the state — the page, `status.json`,
-`history.json`, the feed, the badge — returns 500 with `no such column: …`
+If you skip them, the deployment does not stop, and that is the trouble:
+it starts, `/health` answers 204 **with the new version in `x-nabiz`**, and
+what breaks is whatever reads the missing column — for the v3.5 and v3.7
+ones that is the page, `status.json`, `history.json`, the feed and the
+badge; for the v3.9 one it is the page, `status.json` and the feed, while
+`history.json` and the badge answer as if nothing were wrong. Each returns
+500 with `no such column: …`
 in the log, while `notices.json`, `llms.txt` and `robots.txt` carry on
 answering. Each probe round writes its checks and then fails before the
 state, so pruning and alerting stop too.
@@ -62,6 +69,10 @@ bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE state ADD COLUMN 
 # v3.6 → v3.7 — why a monitor is down, when the status code does not say it
 bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE state ADD COLUMN last_reason TEXT"
 
+# v3.9 → v3.10 — the index the hourly sweep uses to keep the column below
+# true when a monitor is moved into a group or out of one
+bunx wrangler d1 execute nabiz --remote --command "CREATE INDEX IF NOT EXISTS events_by_monitor ON events (monitor_id, grouped)"
+
 # v3.8 → v3.9 — which kind of monitor wrote an event, so the page can read a
 # window of each without walking every event ever kept
 bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE events ADD COLUMN grouped INTEGER NOT NULL DEFAULT 0"
@@ -72,8 +83,13 @@ bunx wrangler d1 execute nabiz --remote --command "CREATE INDEX IF NOT EXISTS ev
 The three v3.9 statements are one change and go together: the column, the
 value it should have had for the events already there, and the index that
 makes the column worth having. Run in that order — the index over a column
-that does not exist yet is an error, and this is why a container adds the
-columns **before** it applies `schema.sql` rather than after.
+that does not exist yet is an error.
+
+If you run the first and not the second, the hourly sweep repairs it from
+v3.10 on: the column is a copy of `monitors.grouped`, and every sweep sets
+it back to what that column says. That is also what makes it safe to edit
+`monitors.grouped` afterwards, and what makes the `UPDATE` above safe to
+re-run — it converges on the same answer the page labels rows with.
 
 ## v3.7 → v3.8 reads bodies, and `expect_body` may need rewording
 
@@ -88,7 +104,13 @@ curl -s https://example.com/ | head -c 65536 | grep -c "the words you configured
 ```
 
 Zero means move the words earlier in the page or point the monitor at a
-smaller endpoint. Nothing else about `expect_body` changed.
+smaller endpoint.
+
+v3.9 tightened the same cut. v3.8 read the first 64 KB *and the rest of
+whatever chunk it was in* — up to 112 KB on Node, 69 KB on a Worker — so a
+monitor whose words sit just past 64 KB could have been green on v3.8 and
+goes red on v3.9. The check above is the same one; run it against 65536
+bytes and believe that number rather than what v3.8 happened to read.
 
 Two numbers changed meaning in v3.8 and back in v3.9. A monitor's latency
 was time to the answer, became time to the answer plus its body while the
