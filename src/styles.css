@@ -625,8 +625,17 @@
   dialog h3 {
     @apply mb-4 text-[16px] font-semibold tracking-[-0.2px];
   }
+  /* Four severities in a row, until a language needs more room than the
+   * dialog has: Spanish wanted 247 pixels of the 218 there are at 360, and
+   * a severity nobody can read is worse than one on a second line. */
   .seg {
-    @apply mb-3 flex gap-1.5;
+    @apply mb-3 flex flex-wrap gap-1.5;
+  }
+  .seg button {
+    /* Never narrower than its own word: a severity squeezed until it
+     * overflows its own pill is the thing the wrap is here to avoid. */
+    flex: 1 1 22%;
+    min-width: fit-content;
   }
   .seg button {
     @apply border-line text-mut flex-1 cursor-pointer rounded-full border px-1 py-2 text-[12px] font-semibold;
@@ -665,6 +674,15 @@
     @apply border-line text-fg min-w-0 flex-1 rounded-full border px-3.5 py-2 text-[13px];
     background: var(--bg);
     font-family: inherit;
+  }
+  /* Half each was a guess: "todos los idiomas" and "toutes les langues"
+   * were cut off inside it on a phone, and English sat flush against the
+   * arrow. The list takes what its longest word needs and the token takes
+   * the rest. */
+  .pair select {
+    @apply flex-none;
+    width: auto;
+    max-width: 60%;
   }
   dialog textarea:focus,
   .pair select:focus,
