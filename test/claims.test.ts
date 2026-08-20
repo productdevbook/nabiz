@@ -3,9 +3,16 @@
 // prose that happens to live in src/lib/api.ts and has twice been the one
 // place a corrected claim was left standing.
 import { expect, test } from "bun:test"
+import { execFileSync } from "node:child_process"
 
 import { LANGS } from "../src/lib/i18n.ts"
-import { has, read, walk } from "./source.ts"
+import { has, read, ROOT, walk } from "./source.ts"
+
+function tracked(): string[] {
+  return execFileSync("git", ["ls-files"], { cwd: ROOT, encoding: "utf8" })
+    .split("\n")
+    .filter((f) => f !== "" && !/\.(png|ico|jpg|webp|woff2?)$/.test(f) && f !== "bun.lock")
+}
 
 const PROSE: { name: string; text: string }[] = [
   { name: "README.md", text: read("README.md") },
@@ -179,14 +186,20 @@ test("a document that lists the languages lists the ones there are", () => {
   // sentence naming five of six.
   const codes = new Set(LANGS)
   const wrong: string[] = []
-  for (const { name, text } of PROSE)
+  // Every tracked file, not the documents alone: `wrangler.toml`,
+  // `compose.yaml` and the Kubernetes README are where an operator reads
+  // what `LANG` takes, and all three said five.
+  const everywhere = tracked().map((f) => ({ name: f, text: read(f) }))
+  for (const { name, text } of everywhere)
     // By paragraph, not by line: a list long enough to wrap is still one
     // list, and a rule that reads lines would ask for it on one.
     for (const line of text.split(/\n\s*\n/)) {
       // A run of language codes: two or more separated by commas or pipes,
       // whatever punctuation the document uses around them.
+      // The separator class carries a quote too: `"en", "tr", …` never
+      // assembled into a run without it.
       const runs = line.matchAll(
-        /\b(?:en|tr|de|es|fr|zh-CN)\b(?:[`,|\s]+`?\b(?:en|tr|de|es|fr|zh-CN)\b`?)+/g,
+        /\b(?:en|tr|de|es|fr|zh-CN)\b(?:["`,|\s]+"?`?\b(?:en|tr|de|es|fr|zh-CN)\b"?`?)+/g,
       )
       for (const run of runs) {
         const found = new Set((run[0].match(/\b(?:en|tr|de|es|fr|zh-CN)\b/g) ?? []) as string[])

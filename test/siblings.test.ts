@@ -27,6 +27,15 @@ test("an empty ?lang= is not an answer on any surface", () => {
       // than by how it is spelled, because an intermediate variable walked
       // around the first version of this rule.
       if (/^(process\.)?env\.\w+$/.test(inner)) continue
+      // And what it falls back to has to be the configured language, not a
+      // literal: `langOf(asked, "en")` counts two arguments and answers
+      // English to a Turkish deployment, which is the whole defect.
+      const parts = inner.split(",")
+      const last = (parts[parts.length - 1] ?? "").trim()
+      if (parts.length > 1 && !last.includes("env.")) {
+        wrong.push(`${f}: langOf falls back to ${last}, not to what is configured`)
+        continue
+      }
       let depth = 0
       let commas = 0
       for (const c of inner) {

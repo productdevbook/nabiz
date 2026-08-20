@@ -25,9 +25,13 @@ const ALLOWED = new Set([
   "example.test",
   "host",
   "x",
-  // Where this project lives, and the badge on its README.
+  // Where this project lives, what it is published to, and the badge on
+  // its README.
   "github.com",
   "img.shields.io",
+  "ghcr.io",
+  "workers.dev",
+  "trycloudflare.com",
   // Standards and credits: an XML namespace and the icon set.
   "www.w3.org",
   "lucide.dev",
@@ -36,8 +40,12 @@ const ALLOWED = new Set([
   // A loopback and a Kubernetes example that names no cluster.
   "127.0.0.1",
   "api.default.svc.cluster.local",
+  // The standard this file follows, named where it is followed.
+  "llmstxt.org",
   // Not hosts at all: Kubernetes API groups and label prefixes, which are
   // spelled like domains and resolve to nothing.
+  "kubernetes.io",
+  "cert-manager.io",
   "app.kubernetes.io",
   "networking.k8s.io",
   "kustomize.config.k8s.io",
@@ -57,11 +65,18 @@ test("no host is named without a scheme either", () => {
   const wrong: string[] = []
   for (const f of tracked()) {
     // A stylesheet has no hostnames outside a url(), which the rule above
-    // reads; what it does have is chains of class selectors, and one of
-    // them ends in a word this pattern would take for a top-level domain.
-    if (f.endsWith(".css")) continue
-    for (const m of read(f).matchAll(
-      /\b[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)+\.(?:com|net|org|io|dev|co|uk|de|tr|app|cloud|sh|me|xyz|info|biz|local)\b/g,
+    // reads, and it does have chains of class selectors, one of which ends
+    // in a word this pattern takes for a domain. Its comments are read,
+    // since a comment is where a hostname would sit.
+    const text = f.endsWith(".css")
+      ? (read(f).match(/\/\*[\s\S]*?\*\//g) ?? []).join("\n")
+      : read(f)
+    // Two labels is a hostname too: a company's bare domain needs no
+    // subdomain to be somebody's. The endings are the common ones rather
+    // than a guess at which a real host might use — minus Austria's, which
+    // is also every `e.at` and `body.at` in this codebase.
+    for (const m of text.matchAll(
+      /\b[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.(?:com|net|org|io|dev|co|uk|de|tr|app|cloud|sh|me|xyz|info|biz|local|ai|eu|fr|es|nl|se|cn|jp|ru|it|pl|ca|au|us|tv|cc|gg|to|st|so|fm|am|is|ch|be|dk|no|fi|cz|hu|ro|gr|pt|ie|nz|in|br|mx|za|kr|sg|hk|tw)\b/g,
     ))
       if (!ALLOWED.has(m[0])) wrong.push(`${f}: ${m[0]}`)
   }

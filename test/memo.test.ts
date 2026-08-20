@@ -62,30 +62,34 @@ test("anything remembered across requests is pinned across both copies", () => {
   // src/lib is instantiated twice in a server: once inside the Astro
   // bundle that renders, once from source in the process that probes. A
   // module-local map is two maps, and the writer clears the wrong one.
+  // Named one by one, with what makes each of them safe. An entry here is
+  // an argument, not an exemption: a new name has to earn its line.
   const KNOWN: Record<string, string> = {
-    "src/lib/store.ts:WeakMap": "pinned on globalThis as nabizPage",
-    // Keyed on the PageData object the pinned store hands out, so the two
-    // copies cannot disagree about which round they are shaping.
-    "src/lib/shape.ts:WeakMap": "keyed on the pinned store's own object",
-    // Per-isolate by design: the throttle is a brake on one connection
-    // into one colo, and says so.
-    "src/lib/api.ts:Map": "per-isolate brake, documented as such",
+    "src/lib/store.ts:across": "the pin itself — globalThis, so both copies share it",
+    "src/lib/shape.ts:shaped": "pinned as nabizRows, keyed on the pinned store's own object",
+    "src/lib/api.ts:attempts": "per-isolate brake on one address, documented as such",
+    // Written once at module load and never again: two copies of a
+    // constant are the same constant.
+    "src/lib/api.ts:REASONS": "constant, read-only",
+    "src/lib/api.ts:SEVERITIES": "constant, read-only",
+    "src/lib/i18n.ts:table": "constant, read-only",
   }
   const found: string[] = []
   for (const f of walk("src/lib", ".ts")) {
     const text = read(f)
-    // Every shape a module-level map can be written in: exported or not,
-    // annotated or not, with or without type arguments.
+    // Every shape that outlives a request, not only a Map: a Set and a
+    // plain object hold just as much and are two copies just the same.
     for (const m of text.matchAll(
-      /^(?:export\s+)?(?:const|let|var)\s+\w+(?:\s*:[^=\n]+)?\s*=[\s\S]{0,200}?new (Weak)?Map\b/gm,
+      /^(?:export\s+)?(?:const|let|var)\s+(\w+)(?:\s*:[^=\n]+)?\s*=[\s\S]{0,200}?(new (?:globalThis\.)?(Weak)?(?:Map|Set)\b|\{\s*\}\s*as\s+Record<)/gm,
     ))
-      found.push(`${f}:${m[1] === "Weak" ? "Weak" : ""}Map`)
+      found.push(`${f}:${m[1] as string}`)
   }
   const unclassified = found.filter((k) => !(k in KNOWN))
   expect(unclassified).toEqual([])
-  // And the store's own one is pinned, not merely classified.
+  // And the two that must be pinned are pinned, not merely classified.
   expect(/globalThis as/.test(store)).toBe(true)
   expect(/across\.nabizPage/.test(store)).toBe(true)
+  expect(/globalThis as/.test(read("src/lib/shape.ts"))).toBe(true)
 })
 
 test("the round warms everything a request would otherwise pay for", () => {

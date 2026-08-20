@@ -72,15 +72,20 @@ test("a colour is a token, or it is the same colour in both themes", () => {
     // A mask is a shape, not a colour: what shows through it is the token
     // painted behind it.
     /stroke="black"/,
-    // The one place a hue is mixed with the surface it sits on, from two
-    // tokens.
-    /color-mix\(/,
+    // A hue mixed with the surface it sits on — from two tokens, which is
+    // what makes it safe. A literal inside one is still a literal.
+    /color-mix\((?:[^)]*var\(--[\w-]+\)[^)]*)\)/,
   ]
   const wrong: string[] = []
   for (const line of outside.split("\n")) {
     if (SAFE.some((re) => re.test(line))) continue
     if (/^\s*(\/\*|\*|\/\/)/.test(line)) continue
-    if (/#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/.test(line)) wrong.push(line.trim())
+    // Named colours are colours: `border-color: white` is a light theme
+    // written into a rule that both themes read.
+    const named =
+      /(?:color|background|border-color|outline-color|fill|stroke|box-shadow)\s*:[^;]*\b(white|black|red|green|blue|grey|gray|silver|orange|yellow|purple|pink|brown|navy|teal|olive|maroon|lime|aqua|fuchsia)\b/
+    if (/#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/.test(line) || named.test(line))
+      wrong.push(line.trim())
   }
   expect(wrong).toEqual([])
 })
