@@ -6,7 +6,7 @@ On Cloudflare these are `[vars]` in `wrangler.toml` and secrets set with
 | Worker | Server | Purpose |
 |---|---|---|
 | `TITLE` | `NABIZ_TITLE` | page title |
-| `LANG` | `NABIZ_LANG` | default language: `en`, `tr`, `de`, `es`, `fr` |
+| `LANG` | `NABIZ_LANG` | default language: `en`, `tr`, `de`, `es`, `fr`, `zh-CN` |
 | `ADMIN_TOKEN` | `ADMIN_TOKEN` | enables notice writing; without it every write is refused |
 | `TELEGRAM_BOT_TOKEN` | same | with the chat id, a message on every state change |
 | `TELEGRAM_CHAT_ID` | same | |
@@ -28,7 +28,7 @@ A value that is not a number falls back to the default rather than
 through: a `PORT` of `later` is 8080, not a random port.
 
 `LANG` is a POSIX variable before it is nabiz's, so on a server
-`NABIZ_LANG` wins and a `LANG` that is not one of the five languages is
+`NABIZ_LANG` wins and a `LANG` that is not one of the six languages is
 ignored. `TITLE` has no such conflict and is read on a server too, with
 `NABIZ_TITLE` winning — worth knowing if an env file already has one.
 

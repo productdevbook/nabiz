@@ -17,7 +17,7 @@ Three answers decide everything else:
    survive their own machine going down, it has to be the second. Both is
    a legitimate answer.
 2. **Title and language** — `NABIZ_TITLE`, and one of `en`, `tr`, `de`,
-   `es`, `fr`.
+   `es`, `fr`, `zh-CN`.
 3. **A token, or not** — `ADMIN_TOKEN` enables writing notices. Without
    it every write is refused, which is a working state; do not invent one
    and do not put it in a file you commit.

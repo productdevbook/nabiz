@@ -59,7 +59,7 @@ source, same schema. *nabız* is Turkish for "pulse"; the ASCII spelling
   speaks for and never their names.
 - Operator notices in markdown, with severity and per-language targeting.
 - Alerts to Telegram and a webhook on state changes.
-- Five languages (en, tr, de, es, fr), light and dark, auto-refresh.
+- Six languages (en, tr, de, es, fr, zh-CN), light and dark, auto-refresh.
 - JSON API, RSS feed, SVG badge, `llms.txt`.
 
 Not included: incident timelines, subscriber emails, multi-region probes.

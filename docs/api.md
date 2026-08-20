@@ -3,7 +3,8 @@
 Eight endpoints to read and two to write. The reading is CORS-open; what
 you get is held until the next probe round writes, and for at most fifteen
 seconds on Cloudflare — so it is never older than the round behind it. Three of them answer in a language — `/`, `/feed.xml`
-and `/api/notices.json` take `?lang=` (`en`, `tr`, `de`, `es`, `fr`); the
+and `/api/notices.json` take `?lang=` (`en`, `tr`, `de`, `es`, `fr`,
+`zh-CN`); the
 rest carry no words to translate.
 
 | Endpoint | Returns |
@@ -106,7 +107,7 @@ curl -X POST https://status.example.com/api/notice/resolve \
 - `severity`: `info`, `maintenance`, `degraded`, `outage`. The dialog on
   the page shows these translated — English calls `info` a "notice" — but
   the value the API takes and returns is always the English key.
-- `lang`: one of the five languages, or `all` — a notice written for one
+- `lang`: one of the six languages, or `all` — a notice written for one
   language is served only to it on the page and in the feed.
   `/api/notices.json` scopes the same way when asked with `?lang=`, and
   returns every notice when it is not. `"all"` is stored and returned as

@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 
 import { KEYS, LANGS, langOf, t, table } from "../src/lib/i18n.ts"
 
-describe("five languages, none of them half-finished", () => {
+describe("every language, none of them half-finished", () => {
   test("every language answers every key with something non-empty", () => {
     const empty: string[] = []
     for (const lang of LANGS)

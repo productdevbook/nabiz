@@ -57,8 +57,10 @@ The local D1 lives under `.wrangler/state/`; create it once with
   messages. `example.com` and placeholders only. Monitors are D1 rows
   precisely so that deployments keep their names out of this repo.
 - **Every user-facing string goes through `src/lib/i18n.ts`, in all five
-  languages at once** (en, tr, de, es, fr). A key missing from one
-  language is a type error; do not work around it.
+  languages `LANGS` names at once** (en, tr, de, es, fr, zh-CN). A key
+  missing from one language is a type error; do not work around it. A new
+  language is more than its own block: `percent()` and `held()` decide
+  where a sign, a space and a unit go, and the docs enumerate the codes.
 - **Stay inside Cloudflare's free tier**: one cron a minute, no external
   service a probe depends on, no dependency needing bundler config.
 - **`src/lib/` knows no platform.** It speaks the narrow `Db` interface

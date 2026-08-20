@@ -4,6 +4,7 @@
 // place a corrected claim was left standing.
 import { expect, test } from "bun:test"
 
+import { LANGS } from "../src/lib/i18n.ts"
 import { has, read, walk } from "./source.ts"
 
 const PROSE: { name: string; text: string }[] = [
@@ -154,4 +155,32 @@ test("what the code publishes as its version is what the release is", () => {
   // asked only that the two strings appeared somewhere in the file, and
   // moving `bun run check` to the last step of the job passed it.
   expect(gate < push && check < push).toBe(true)
+})
+
+test("a document that lists the languages lists the ones there are", () => {
+  // Adding a language is nine edits outside its own block, and this is
+  // what makes the ninth one fail loudly rather than sit there as a
+  // sentence naming five of six.
+  const codes = new Set(LANGS)
+  const wrong: string[] = []
+  for (const { name, text } of PROSE)
+    // By paragraph, not by line: a list long enough to wrap is still one
+    // list, and a rule that reads lines would ask for it on one.
+    for (const line of text.split(/\n\s*\n/)) {
+      // A run of language codes: two or more separated by commas or pipes,
+      // whatever punctuation the document uses around them.
+      const runs = line.matchAll(
+        /\b(?:en|tr|de|es|fr|zh-CN)\b(?:[`,|\s]+`?\b(?:en|tr|de|es|fr|zh-CN)\b`?)+/g,
+      )
+      for (const run of runs) {
+        const found = new Set((run[0].match(/\b(?:en|tr|de|es|fr|zh-CN)\b/g) ?? []) as string[])
+        // Only a line that is trying to be the list, not one that names
+        // two of them to make a point.
+        if (found.size < 3) continue
+        const missing = [...codes].filter((c) => !found.has(c))
+        if (missing.length > 0)
+          wrong.push(`${name}: ${missing.join(", ")} missing from "${run[0]}"`)
+      }
+    }
+  expect(wrong).toEqual([])
 })
