@@ -33,7 +33,9 @@ function result(ok: boolean, m = monitor()): ProbeResult {
   }
 }
 
-function withState(rows: { monitor_id: number; ok: number; since: number; fails: number }[]) {
+function withState(
+  rows: { monitor_id: number; ok: number; since: number; fails: number; fail_at?: number }[],
+) {
   return fakeDb((sql) => (sql.includes("FROM state") ? rows : []))
 }
 
@@ -49,8 +51,12 @@ describe("the monitor is not called down on one bad minute", () => {
 
     expect(changes).toEqual([])
     expect(eventWrites(writes)).toEqual([])
-    // …but the strike is counted, and the monitor still reads as up.
-    expect(stateWrite(writes)?.args).toEqual([1, 1, 0, 1, null, "unreachable"])
+    // …but the strike is counted, and the monitor still reads as up. The
+    // last argument is when this run of failures began: the recovery
+    // message counts the outage from there, not from the threshold.
+    const args = stateWrite(writes)?.args as unknown[]
+    expect(args.slice(0, 6)).toEqual([1, 1, 0, 1, null, "unreachable"])
+    expect(typeof args[6]).toBe("number")
   })
 
   test("the threshold-th failure in a row is the outage", async () => {
@@ -103,7 +109,9 @@ describe("the monitor is not called down on one bad minute", () => {
     expect(changes).toEqual([])
     expect(eventWrites(writes)).toEqual([])
     const w = stateWrite(writes)
-    expect(w?.args).toEqual([1, 0, 3, 3, null, "unreachable"])
+    // A row already down keeps the moment it started failing; a row with
+    // none from before this release falls back to when it was called down.
+    expect((w as { args: unknown[] }).args.slice(0, 6)).toEqual([1, 0, 3, 3, null, "unreachable"])
   })
 })
 
@@ -125,5 +133,40 @@ describe("a monitor that is down the first time it is seen", () => {
     const { db, writes } = withState([])
     expect(await record(db, [result(true)])).toEqual([])
     expect(eventWrites(writes)).toEqual([])
+  })
+})
+
+describe("how long an outage was", () => {
+  test("the recovery counts from the first failed probe, not the threshold", async () => {
+    const minute = 60_000
+    const now = Date.now()
+    // Up since an hour ago, failing for two rounds, called down on the
+    // second. It recovers now: the outage is two rounds long, not one.
+    const { db } = withState([
+      { monitor_id: 1, ok: 0, since: now - 2 * minute, fails: 2, fail_at: now - 2 * minute },
+    ])
+    const [change] = await record(db, [result(true)])
+    expect(change?.ok).toBe(true)
+    expect(Math.round((change?.heldFor ?? 0) / 60)).toBe(2)
+  })
+
+  test("a row written before this release still answers, from what it has", async () => {
+    const minute = 60_000
+    const now = Date.now()
+    const { db } = withState([{ monitor_id: 1, ok: 0, since: now - 5 * minute, fails: 2 }])
+    const [change] = await record(db, [result(true)])
+    expect(Math.round((change?.heldFor ?? 0) / 60)).toBe(5)
+  })
+
+  test("going down is timed from the probe that failed, not the one that admitted it", async () => {
+    const minute = 60_000
+    const now = Date.now()
+    const { db } = withState([
+      { monitor_id: 1, ok: 1, since: now - 10 * minute, fails: 1, fail_at: now - minute },
+    ])
+    const [change] = await record(db, [result(false)])
+    expect(change?.ok).toBe(false)
+    // Up for nine minutes, not ten: it stopped being up a minute ago.
+    expect(Math.round((change?.heldFor ?? 0) / 60)).toBe(9)
   })
 })

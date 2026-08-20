@@ -60,7 +60,11 @@ CREATE TABLE IF NOT EXISTS state (
   -- And why, when the code does not say it: 'timeout', 'unreachable' for a
   -- connection that never happened, 'body' for a promised status with the
   -- wrong words in it.
-  last_reason TEXT
+  last_reason TEXT,
+  -- When the current run of failures began, which is a threshold's worth of
+  -- rounds before the monitor was called down. The recovery message counts
+  -- the outage from here.
+  fail_at INTEGER
 );
 
 -- Every change of state, kept so the page can say not only how things are

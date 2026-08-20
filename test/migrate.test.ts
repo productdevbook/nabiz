@@ -53,6 +53,7 @@ describe("a database that started on an older version", () => {
       "state.fails",
       "state.last_status",
       "state.last_reason",
+      "state.fail_at",
       "events.grouped",
     ])
     const [api] = await monitors(db)

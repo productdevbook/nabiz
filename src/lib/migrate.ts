@@ -11,6 +11,7 @@ const ADDED: { table: string; column: string; type: string; fill?: string }[] = 
   { table: "notices", column: "lang", type: "TEXT" },
   { table: "state", column: "last_status", type: "INTEGER" },
   { table: "state", column: "last_reason", type: "TEXT" },
+  { table: "state", column: "fail_at", type: "INTEGER" },
   {
     table: "events",
     column: "grouped",
