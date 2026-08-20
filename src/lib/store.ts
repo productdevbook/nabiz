@@ -31,6 +31,7 @@ function utcDay(at: number): string {
 export async function record(db: Db, results: ProbeResult[]): Promise<StateChange[]> {
   const now = Date.now()
   const day = utcDay(now)
+  forget(db)
 
   const writes: Stmt[] = []
   for (const r of results) {
@@ -132,6 +133,7 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
  *  it. Disabling is what keeps a history safely; deleting is what needs
  *  this sweep to have run in between. */
 export async function prune(db: Db): Promise<void> {
+  forget(db)
   const now = Date.now()
   const before = (days: number) => now - days * 24 * 3600 * 1000
   const orphans = (table: string) =>
@@ -192,7 +194,31 @@ export interface PageData {
   wrote: number | null
 }
 
+/** The same window the edge holds the page for, and for the same reason:
+ *  a status page's traffic spikes exactly when things are down, and
+ *  nothing served from here is staler than the data behind it — the probes
+ *  run a minute apart. Kept per database so two of them in one process
+ *  cannot read each other's answer, and dropped the moment anything is
+ *  written. */
+const PAGE_MS = 15_000
+
+const recent = new WeakMap<Db, { at: number; window: number; data: PageData }>()
+
+/** Called by every write: what the page says next has to include it. */
+export function forget(db: Db): void {
+  recent.delete(db)
+}
+
 export async function forPage(db: Db, window: number): Promise<PageData> {
+  const held = recent.get(db)
+  if (held !== undefined && held.window === window && Date.now() - held.at < PAGE_MS)
+    return held.data
+  const data = await read(db, window)
+  recent.set(db, { at: Date.now(), window, data })
+  return data
+}
+
+async function read(db: Db, window: number): Promise<PageData> {
   const all = await monitors(db)
   const since = new Date(Date.now() - window * 24 * 3600 * 1000).toISOString().slice(0, 10)
 
@@ -287,6 +313,7 @@ export async function addNotice(
   body: string,
   lang: string | null,
 ): Promise<number> {
+  forget(db)
   const row = await db
     .prepare("INSERT INTO notices (at, severity, body_md, lang) VALUES (?, ?, ?, ?) RETURNING id")
     .bind(Date.now(), severity, body, lang)
@@ -297,6 +324,7 @@ export async function addNotice(
 
 /** True when something was actually resolved just now. */
 export async function resolveNotice(db: Db, id: number): Promise<boolean> {
+  forget(db)
   const r = await db
     .prepare("UPDATE notices SET resolved_at = ? WHERE id = ? AND resolved_at IS NULL")
     .bind(Date.now(), id)

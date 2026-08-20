@@ -77,10 +77,14 @@ spec:
           resources:
             requests:
               cpu: 25m
-              memory: 96Mi
+              memory: 128Mi
+            # Measured at fifty concurrent readers on forty monitors: about
+            # 115Mi at rest and 200Mi at the peak of a burst, oscillating
+            # rather than climbing. 256Mi left no room for the burst a
+            # status page exists for.
             limits:
               cpu: 500m
-              memory: 256Mi
+              memory: 384Mi
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

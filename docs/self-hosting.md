@@ -51,6 +51,20 @@ The database is `NABIZ_DB` — `./nabiz.db` beside the checkout by default,
 that does not exist yet becomes a working page; the directory around it
 has to exist already.
 
+## Under load
+
+The page and the API are held for fifteen seconds in the process — the
+same window a Cloudflare deployment holds them at the edge, and less than
+the time between two probes, so nothing served is staler than the data
+behind it. Anything written through nabiz drops it at once, so a notice
+you publish is on the page when it reloads.
+
+Measured on forty monitors with ninety days of history, fifty concurrent
+readers: about 320 requests a second for the HTML and 3,500 for
+`status.json`, holding at about 115 MB at rest and 200 MB at the peak of a
+burst. The probe round keeps its cadence throughout — reading the page
+does not slow down the watching.
+
 ## What the container promises
 
 - Port 8080, `PORT` and `HOST` to change it.

@@ -137,3 +137,40 @@ describe("the same store, on a file instead of D1", () => {
     await db.close()
   })
 })
+
+describe("the page's data is held for a moment, and dropped by a write", () => {
+  test("a row written behind the page's back is not seen until something writes through the store", async () => {
+    const db = await fresh()
+    await db.exec(seed("api"))
+    expect((await forPage(db, 90)).monitors.length).toBe(1)
+
+    // Straight into the file, past everything that would drop the memo.
+    await db.exec(seed("second"))
+    expect((await forPage(db, 90)).monitors.length).toBe(1)
+
+    // A write through the store is what says the page has changed.
+    await addNotice(db, "info", "something happened", null)
+    expect((await forPage(db, 90)).monitors.length).toBe(2)
+    await db.close()
+  })
+
+  test("two databases do not read each other's answer", async () => {
+    const one = await fresh()
+    const two = await fresh()
+    await one.exec(seed("api"))
+    expect((await forPage(one, 90)).monitors.length).toBe(1)
+    expect((await forPage(two, 90)).monitors.length).toBe(0)
+    await one.close()
+    await two.close()
+  })
+
+  test("a probe round makes its own result visible", async () => {
+    const db = await fresh()
+    await db.exec(seed("api"))
+    const [api] = await monitors(db)
+    await forPage(db, 90)
+    await record(db, [result(api as Monitor, true)])
+    expect((await forPage(db, 90)).states.get(1)?.ok).toBe(true)
+    await db.close()
+  })
+})
