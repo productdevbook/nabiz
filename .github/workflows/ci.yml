@@ -23,8 +23,9 @@ jobs:
       - run: bunx oxlint --deny-warnings
       - run: bunx oxfmt --check src test
       - run: bun test
-      # The build is the rest of the typecheck: it generates the route
-      # tree and compiles the components tsc never sees.
+      # Not a typecheck — `astro check` cannot run against TypeScript 7 —
+      # but it is what proves the route tree, the CSS and the two adapters
+      # still build.
       - run: bun run build
       # The config the deploy actually uses is generated, not the one in
       # the repository — so it is the generated one that has to be

@@ -12,7 +12,7 @@
     "start": "bun src/server/index.ts",
     "preview": "astro preview",
     "deploy": "astro build && wrangler deploy -c dist/server/wrangler.json",
-    "typecheck": "tsc --noEmit -p tsconfig.lib.json",
+    "typecheck": "tsc --noEmit -p tsconfig.lib.json && tsc --noEmit -p tsconfig.edge.json",
     "lint": "oxlint --deny-warnings",
     "fmt": "oxfmt",
     "test": "bun test",

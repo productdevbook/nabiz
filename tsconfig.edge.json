@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "src/pages",
+    "src/worker.ts",
+    "src/worker-env.d.ts"
+  ],
+  "compilerOptions": {
+    "types": [
+      "@cloudflare/workers-types"
+    ],
+    "skipLibCheck": true
+  }
+}

@@ -35,10 +35,10 @@ the cron was, SQLite where D1 was. `src/server/index.ts` is that entry.
 ## Commands
 
     bun run dev          dev server on :4321 with a local D1 (miniflare)
-    bun run check        typecheck + lint + format check + tests — run
-                         before every commit; CI runs this plus both builds
-    bun run build        astro build; also the only full typecheck of
-                         .astro files
+    bun run check        typecheck (lib+server, and pages+worker) + lint +
+                         format check + tests — run before every commit;
+                         CI runs this plus both builds
+    bun run build        astro build
     bun run build:server the same source for the Node adapter
     bun run start        run the server target from a checkout
     bun run deploy       astro build + wrangler deploy -c dist/server/wrangler.json
@@ -104,11 +104,20 @@ Icons are Lucide paths inlined in the markup; no icon dependency.
   uses hourly averages of the last 24h (`src/lib/store.ts`). Old fixture
   data falls out of both windows and the chip rightly disappears —
   reseed with fresh timestamps before concluding it broke.
-- `tsc` is scoped to `tsconfig.lib.json` (lib + server + tests) and types
-  them with `@types/node`; the root `tsconfig.json` types the pages and the
-  worker with `@cloudflare/workers-types`. The two sets of globals cannot
-  share a project — that is why there are two.
-- Astro components are type-checked by the build, not by tsc; `bun run
-  build:server` is the second half of that check.
+- `tsc` runs twice, because `@types/node` and `@cloudflare/workers-types`
+  declare the same globals and cannot share a project:
+  `tsconfig.lib.json` covers lib + server + tests with the node types, and
+  `tsconfig.edge.json` covers `src/pages` + `src/worker.ts` with the
+  Workers types. The root `tsconfig.json` is the base both extend and is
+  run by nothing on its own.
+- **The `.astro` frontmatter is checked by nothing.** `astro build` does no
+  type checking, and `astro check` cannot run against TypeScript 7 — it
+  needs an API the native compiler does not expose yet. Keep logic in
+  `src/lib/`, which is checked, and behaviour in the inline script, which
+  `test/page.test.ts` runs.
+- The worker's environment is declared in `src/worker-env.d.ts` inside
+  `declare namespace Cloudflare`, which is where `cloudflare:workers` reads
+  it from. Declared as a bare global instead, every page compiles against
+  an empty `Env` and nothing says so.
 - Formatting is oxfmt with `semi: false`; lint is oxlint. Both refuse
   warnings, locally and in CI — `bun run check` is what CI runs.
