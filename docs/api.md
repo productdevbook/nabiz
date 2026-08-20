@@ -1,9 +1,8 @@
 # API
 
-Six endpoints to read and two to write. The reading is CORS-open; what you
-get is held for at most fifteen seconds
-or until the next probe round writes, whichever comes first — so it is
-never older than the round behind it. Three of them answer in a language — `/`, `/feed.xml`
+Eight endpoints to read and two to write. The reading is CORS-open; what
+you get is held until the next probe round writes, and for at most fifteen
+seconds on Cloudflare — so it is never older than the round behind it. Three of them answer in a language — `/`, `/feed.xml`
 and `/api/notices.json` take `?lang=` (`en`, `tr`, `de`, `es`, `fr`); the
 rest carry no words to translate.
 
@@ -16,6 +15,7 @@ rest carry no words to translate.
 | `/feed.xml` | state changes and notices as RSS |
 | `/llms.txt` | all of this in plain text, where agents look |
 | `/health` | 204, with no database behind it |
+| `/robots.txt` | crawling is welcome, and it points at `/llms.txt` |
 
 ## Without scraping the page
 

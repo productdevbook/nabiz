@@ -207,10 +207,10 @@ export function llms(origin: string, title: string): Response {
 
 > A status page run by nabiz (https://github.com/productdevbook/nabiz). The
 > services listed on it are probed once a minute and ninety days of history
-> are kept. Everything here is public, read-only and CORS-open. The JSON,
-> the feed and the badge are uncached — what you get is what is true at the
-> moment you asked. The HTML page may be held at the edge for fifteen
-> seconds, which is less than the time between two probes.
+> are kept. Everything here is public, read-only and CORS-open. Every
+> answer here is held briefly — at most fifteen seconds on Cloudflare, and
+> until the next probe round on a self-hosted one — and every round drops
+> what it held, so nothing served is older than the round behind it.
 
 A monitor marked as a group stands for several hosts that are served here
 but named elsewhere; neither their names nor their number is published.
@@ -224,6 +224,7 @@ but named elsewhere; neither their names nor their number is published.
 - [badge.svg](${origin}/badge.svg): the overall state as a badge
 - [feed.xml](${origin}/feed.xml): state changes and notices as RSS
 - [health](${origin}/health): 204 when the status page itself is alive, with no database behind it
+- [robots.txt](${origin}/robots.txt): crawling is welcome; it points here
 
 ## Asking cheaply
 
