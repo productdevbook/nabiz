@@ -20,6 +20,9 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          # Every tag, so the job can tell whether this one is the newest.
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
       # A tag can be put on any commit. Two things have to be true of this
       # one before an image goes out under its name: that the version it
@@ -43,6 +46,12 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - id: newest
+        if: github.ref_type == 'tag'
+        run: |
+          top=$(git tag --list 'v*' --sort=-v:refname | head -1)
+          echo "newest=$([ "$top" = "$GITHUB_REF_NAME" ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
+          echo "this=$GITHUB_REF_NAME newest=$top"
       - id: meta
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
@@ -51,7 +60,11 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
+            # Only from a tag that is the newest release: a patch on an
+            # older line — v3.9.1 after v3.10.0 — would otherwise move
+            # `latest` and `3` backwards under everybody who pulls them,
+            # which is what docs/UPGRADING.md tells a self-hoster to do.
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' && steps.newest.outputs.newest == 'yes' }}
             # Run by hand on a branch there is no version to name it
             # after, and a push with no tag at all is an error.
             type=raw,value=edge,enable=${{ github.ref_type != 'tag' }}
@@ -75,6 +88,13 @@ jobs:
           done
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/)" = "200"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/health)" = "204"
+          # The build says which build it is, and it is this one: the gate
+          # above reads the checkout, this reads what was actually built.
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            said=$(curl -sI http://127.0.0.1:8080/health | tr -d '\r' | sed -n 's/^x-nabiz: //Ip')
+            echo "x-nabiz=$said tag=${GITHUB_REF_NAME#v}"
+            test "$said" = "${GITHUB_REF_NAME#v}"
+          fi
           docker logs nabiz-smoke
           docker rm -f nabiz-smoke
 
