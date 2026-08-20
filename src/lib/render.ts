@@ -21,7 +21,11 @@ export function esc(s: string): string {
 // Rounded down, not to nearest: 99.997% is not a hundred, and a status
 // page that says it is has rounded away the only failure of the quarter.
 export function percent(pct: number, lang: Lang): string {
-  const plain = pct === 100 ? "100" : (Math.floor(pct * 100) / 100).toFixed(2)
+  // Rounded down, deliberately: four failed probes in ninety days must not
+  // print as a hundred percent. The nudge is because binary cannot hold
+  // 18.4 — `18.4 * 100` is 1839.9999999999998, and flooring that dropped a
+  // hundredth the rule never meant to drop.
+  const plain = pct === 100 ? "100" : (Math.floor(pct * 100 + 1e-9) / 100).toFixed(2)
   const n = lang === "en" ? plain : plain.replace(".", ",")
   if (lang === "tr") return `%${n}`
   // A non-breaking space: the four languages that put one before the sign
@@ -60,23 +64,52 @@ export function uptimeLabel(days: DayRow[], lang: Lang): string | null {
 
 /** A day of latency as a hairline: a number says how it is, a line says how
  *  it has been. Area fill under the line, a dot on the newest point. */
-export function sparkline(points: number[], lang: Lang): string {
-  if (points.length < 2) return ""
+/** A run of points as one path. */
+function path(xy: readonly (readonly [number, number])[]): string {
+  return xy.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ")
+}
+
+/** One slot per hour, in place. A slot with nothing in it is an hour with
+ *  no successful probe, and the line breaks there rather than stepping to
+ *  the next hour that has one — a day with an afternoon missing is not a
+ *  day of continuous latency. */
+export function sparkline(points: (number | null)[], lang: Lang): string {
+  const seen = points.filter((p): p is number => p !== null)
+  if (seen.length < 2) return ""
   const w = 72
   const h = 16
-  const max = Math.max(...points)
-  const min = Math.min(...points)
+  const max = Math.max(...seen)
+  const min = Math.min(...seen)
   const span = Math.max(max - min, 1)
-  const xy = points.map((p, i) => {
-    const x = ((w - 4) * i) / (points.length - 1) + 2
-    const y = h - 2.5 - ((h - 6) * (p - min)) / span
-    return [x, y] as const
+  const at = (p: number, i: number) =>
+    [
+      ((w - 4) * i) / Math.max(points.length - 1, 1) + 2,
+      h - 2.5 - ((h - 6) * (p - min)) / span,
+    ] as const
+
+  const runs: (readonly [number, number])[][] = []
+  let run: (readonly [number, number])[] = []
+  points.forEach((p, i) => {
+    if (p === null) {
+      if (run.length > 0) runs.push(run)
+      run = []
+      return
+    }
+    run.push(at(p, i))
   })
-  const line = xy
-    .map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`)
+  if (run.length > 0) runs.push(run)
+
+  const line = runs.map(path).join(" ")
+  const area = runs
+    .filter((xy) => xy.length > 1)
+    .map((xy) => {
+      const [sx] = xy[0] as readonly [number, number]
+      const [ex] = xy[xy.length - 1] as readonly [number, number]
+      return `${path(xy)} L${ex.toFixed(1)} ${h - 1} L${sx.toFixed(1)} ${h - 1} Z`
+    })
     .join(" ")
-  const [ex, ey] = xy[xy.length - 1] as readonly [number, number]
-  const area = `${line} L${ex.toFixed(1)} ${h - 1} L2 ${h - 1} Z`
+  const last = (runs[runs.length - 1] ?? []) as readonly (readonly [number, number])[]
+  const [ex, ey] = last[last.length - 1] as readonly [number, number]
   return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><title>${t(lang, "last_day")}</title><path d="${area}" fill="currentColor" opacity="0.12" stroke="none"/><path d="${line}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="1.8" fill="currentColor"/></svg>`
 }
 
