@@ -138,12 +138,14 @@ async function main(): Promise<void> {
   // would otherwise leave its log world-readable with the URLs in it.
   await chmod(DB_PATH, 0o600).catch(() => {})
 
-  // Additive and idempotent, the same file the Workers deployment runs —
-  // and then the columns it cannot reach, since a table that exists is a
-  // table `CREATE TABLE IF NOT EXISTS` leaves exactly as it found it.
+  // The columns first, then the schema file. A table that exists is a
+  // table `CREATE TABLE IF NOT EXISTS` leaves exactly as it found it, so
+  // the columns are added here — and an index in that file over a column
+  // added here cannot be created before it exists. On an empty database
+  // there is nothing to add and the file does all of it.
   try {
-    await db.exec(await readFile(schemaFile, "utf8"))
     const added = await migrate(db)
+    await db.exec(await readFile(schemaFile, "utf8"))
     if (added.length > 0) console.log(`[nabiz] added ${added.join(", ")}`)
   } catch (error) {
     // The one line that names the file only prints on success, so a

@@ -77,9 +77,14 @@ CREATE TABLE IF NOT EXISTS state (
 CREATE TABLE IF NOT EXISTS events (
   monitor_id INTEGER NOT NULL,
   at INTEGER NOT NULL,
-  ok INTEGER NOT NULL
+  ok INTEGER NOT NULL,
+  -- Whether the monitor was grouped when this was written. The page reads
+  -- a window of each kind, and a window that has to join to find out which
+  -- it is cannot stop at its limit.
+  grouped INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS events_by_time ON events (at);
+CREATE INDEX IF NOT EXISTS events_by_kind ON events (grouped, at);
 
 -- What the operator said, in their own words. A probe can say a thing is
 -- down; only a person can say why, and when to expect it back.

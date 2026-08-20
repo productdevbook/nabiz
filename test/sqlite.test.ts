@@ -87,6 +87,51 @@ describe("the same store, on a file instead of D1", () => {
     await db.close()
   })
 
+  test("a group's members cannot push every named service off the page", async () => {
+    const db = await fresh()
+    await db.exec(seed("api"))
+    await db.exec(seed("shared"))
+    await db.exec(`UPDATE monitors SET grouped = 1 WHERE slug = 'shared'`)
+    const [api, shared] = await monitors(db)
+
+    // The API's one outage is older than four hundred events a large group
+    // wrote in a single round; one window for both loses it entirely.
+    const many = Array.from(
+      { length: 400 },
+      (_, i) => `(${(shared as Monitor).id}, ${2000 + i}, ${i % 2}, 1)`,
+    ).join(", ")
+    await db.exec(
+      `INSERT INTO events (monitor_id, at, ok, grouped) VALUES (${(api as Monitor).id}, 1000, 0, 0), ${many}`,
+    )
+
+    const recent = await recentEvents(db, 400)
+    expect(recent.some((e) => e.monitor_id === (api as Monitor).id)).toBe(true)
+    // Each kind gets the width, so the read is up to twice it.
+    expect(recent.length).toBe(401)
+    await db.close()
+  })
+
+  test("a grouped value that is not one is still grouped, and still read", async () => {
+    const db = await fresh()
+    await db.exec(seed("shared"))
+    const [shared] = await monitors(db)
+    // Monitors are hand-written rows: nothing stops a 2, and shape.ts
+    // reads any non-zero as grouped. A window that asks for exactly 1
+    // would drop this monitor's history on the floor.
+    await db.exec(`UPDATE monitors SET grouped = 2 WHERE slug = 'shared'`)
+    await record(db, [
+      { ...result(shared as Monitor, false), monitor: { ...(shared as Monitor), grouped: 2 } },
+    ])
+    await record(db, [
+      { ...result(shared as Monitor, false), monitor: { ...(shared as Monitor), grouped: 2 } },
+    ])
+
+    const recent = await recentEvents(db, 10)
+    expect(recent.length).toBe(1)
+    expect(recent[0]?.monitor_id).toBe((shared as Monitor).id)
+    await db.close()
+  })
+
   test("a disabled monitor's events do not push the watched ones off the page", async () => {
     const db = await fresh()
     await db.exec(seed("api"))

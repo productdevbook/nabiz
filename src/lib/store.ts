@@ -68,11 +68,14 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
         )
         .bind(id, ok ? 1 : 0, since, fails, r.status, r.reason),
     )
-  const event = (id: number, ok: boolean) =>
+  // The kind is written on the row, not looked up when it is read: a
+  // window that has to join to find out cannot stop at its limit, and
+  // scans every event ever kept when its side is empty.
+  const event = (m: Monitor, ok: boolean) =>
     stateWrites.push(
       db
-        .prepare("INSERT INTO events (monitor_id, at, ok) VALUES (?, ?, ?)")
-        .bind(id, now, ok ? 1 : 0),
+        .prepare("INSERT INTO events (monitor_id, at, ok, grouped) VALUES (?, ?, ?, ?)")
+        .bind(m.id, now, ok ? 1 : 0, m.grouped ? 1 : 0),
     )
 
   for (const r of results) {
@@ -87,7 +90,7 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
       put(r.monitor.id, r.ok, now, r.ok ? 0 : 1, r)
       if (!r.ok) {
         changes.push({ monitor: r.monitor, ok: false, heldFor: null })
-        event(r.monitor.id, false)
+        event(r.monitor, false)
       }
       continue
     }
@@ -99,7 +102,7 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
           ok: true,
           heldFor: Math.round((now - was.since) / 1000),
         })
-        event(r.monitor.id, true)
+        event(r.monitor, true)
         put(r.monitor.id, true, now, 0, r)
       } else {
         put(r.monitor.id, true, was.since, 0, r)
@@ -112,7 +115,7 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
     const fails = was.fails + 1
     if (was.ok && fails >= r.monitor.fail_threshold) {
       changes.push({ monitor: r.monitor, ok: false, heldFor: Math.round((now - was.since) / 1000) })
-      event(r.monitor.id, false)
+      event(r.monitor, false)
       put(r.monitor.id, false, now, fails, r)
     } else {
       put(r.monitor.id, Boolean(was.ok), was.since, fails, r)
@@ -164,11 +167,13 @@ export interface EventRow {
   ok: number
 }
 
-/** How many event rows a page reads before the view collapses them. A
- *  group's members write one each and a group in permanent trouble writes
- *  many that collapse to none, so the read has to be much wider than the
- *  list — and the same width everywhere, or the page, the JSON and the
- *  feed disagree about what happened. */
+/** How many event rows a page reads before the view collapses them, per
+ *  kind: named services get this many and grouped ones get this many, so
+ *  a read returns up to twice it. A group's members write one event each
+ *  and a group in permanent trouble writes many that collapse to none, so
+ *  the read has to be much wider than the list — and the same width
+ *  everywhere, or the page, the JSON and the feed disagree about what
+ *  happened. */
 export const EVENT_ROWS = 400
 
 export async function recentEvents(db: Db, limit: number): Promise<EventRow[]> {
@@ -181,7 +186,7 @@ export async function recentEvents(db: Db, limit: number): Promise<EventRow[]> {
   // named service's history disappears from the page.
   const window = `SELECT e.monitor_id, e.at, e.ok FROM events e
        JOIN monitors m ON m.id = e.monitor_id AND m.enabled = 1
-       WHERE m.grouped = ? ORDER BY e.at DESC LIMIT ?`
+       WHERE e.grouped = ? ORDER BY e.at DESC LIMIT ?`
   const { results } = await db
     .prepare(
       `SELECT monitor_id, at, ok FROM (${window}) UNION ALL

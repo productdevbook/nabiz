@@ -41,9 +41,11 @@ async function old() {
 describe("a database that started on an older version", () => {
   test("gains the columns the schema file cannot add, and keeps its history", async () => {
     const db = await old()
-    // What a start does: the schema first, then the columns it cannot reach.
-    await db.exec(schema)
+    // What a start does, in the order it does it: the columns the schema
+    // file cannot reach, then the file — which carries an index over one
+    // of those columns and cannot run before it is there.
     const added = await migrate(db)
+    await db.exec(schema)
 
     expect(added).toEqual([
       "monitors.expect_body",
@@ -51,6 +53,7 @@ describe("a database that started on an older version", () => {
       "state.fails",
       "state.last_status",
       "state.last_reason",
+      "events.grouped",
     ])
     const [api] = await monitors(db)
     expect(api?.name).toBe("API")
@@ -63,8 +66,8 @@ describe("a database that started on an older version", () => {
 
   test("running it again adds nothing", async () => {
     const db = await old()
-    await db.exec(schema)
     await migrate(db)
+    await db.exec(schema)
     expect(await migrate(db)).toEqual([])
     await db.close()
   })

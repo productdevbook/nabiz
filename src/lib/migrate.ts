@@ -4,13 +4,21 @@ import type { Db } from "./db.ts"
  *  were added. `CREATE TABLE IF NOT EXISTS` cannot reach these — it is a
  *  no-op the moment the table is there — so a deployment that started on
  *  an older version needs them named. */
-const ADDED: { table: string; column: string; type: string }[] = [
+const ADDED: { table: string; column: string; type: string; fill?: string }[] = [
   { table: "monitors", column: "expect_body", type: "TEXT" },
   { table: "monitors", column: "fail_threshold", type: "INTEGER NOT NULL DEFAULT 2" },
   { table: "state", column: "fails", type: "INTEGER NOT NULL DEFAULT 0" },
   { table: "notices", column: "lang", type: "TEXT" },
   { table: "state", column: "last_status", type: "INTEGER" },
   { table: "state", column: "last_reason", type: "TEXT" },
+  {
+    table: "events",
+    column: "grouped",
+    type: "INTEGER NOT NULL DEFAULT 0",
+    // The default is right for every named service and wrong for every
+    // grouped one, and the rows are already there to be asked.
+    fill: "UPDATE events SET grouped = 1 WHERE monitor_id IN (SELECT id FROM monitors WHERE grouped <> 0)",
+  },
 ]
 
 async function columns(db: Db, table: string): Promise<Set<string>> {
@@ -34,7 +42,12 @@ export async function migrate(db: Db): Promise<string[]> {
     return has !== undefined && has.size > 0 && !has.has(a.column)
   })
   await Promise.all(
-    missing.map((a) => db.prepare(`ALTER TABLE ${a.table} ADD COLUMN ${a.column} ${a.type}`).run()),
+    missing.map(async (a) => {
+      await db.prepare(`ALTER TABLE ${a.table} ADD COLUMN ${a.column} ${a.type}`).run()
+      // After its own ALTER, and only its own: a fill reads the column
+      // that statement added.
+      if (a.fill !== undefined) await db.prepare(a.fill).run()
+    }),
   )
   return missing.map((a) => `${a.table}.${a.column}`)
 }
