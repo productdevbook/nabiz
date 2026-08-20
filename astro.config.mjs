@@ -23,6 +23,9 @@ const serverEnv = {
 
 export default defineConfig({
   output: "server",
+  // No sessions anywhere in this page; without saying so the Cloudflare
+  // adapter writes a KV binding with no namespace into the deploy config.
+  session: false,
   adapter: server ? node({ mode: "middleware" }) : cloudflare({
     platformProxy: { enabled: true },
     workerEntryPoint: { path: "src/worker.ts" },

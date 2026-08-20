@@ -10,6 +10,22 @@ import type { EventRow, Notice, PageData } from "./store.ts"
 // Read-only public data; the same courtesy the page extends, for machines.
 const CORS = { "access-control-allow-origin": "*" }
 
+/** What a browser asks before it posts a notice from somewhere else, and
+ *  what a scanner asks for free. Answered here rather than by rendering
+ *  the whole page, which is what routing it would do. */
+export function preflight(): Response {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      allow: "GET, HEAD, POST, OPTIONS",
+      "access-control-allow-methods": "GET, HEAD, POST, OPTIONS",
+      "access-control-allow-headers": "authorization, content-type",
+      "access-control-max-age": "86400",
+      ...CORS,
+    },
+  })
+}
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body, null, 1), {
     status,

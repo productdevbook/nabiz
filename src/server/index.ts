@@ -7,6 +7,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { extname, join, normalize, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 
+import { preflight } from "../lib/api.ts"
 import { tick } from "../lib/tick.ts"
 import { clientAddress, trustedHops } from "./address.ts"
 import { db, DB_PATH, env } from "./env.ts"
@@ -157,6 +158,13 @@ async function main(): Promise<void> {
 
   const server = createServer((req, res) => {
     stampAddress(req)
+    if (req.method === "OPTIONS") {
+      const answer = preflight()
+      const headers: Record<string, string> = {}
+      answer.headers.forEach((value, name) => (headers[name] = value))
+      res.writeHead(answer.status, headers).end()
+      return
+    }
     try {
       handler(req, res, () => {
         void serveStatic(req, res)

@@ -2,6 +2,7 @@
 // one deployment, two duties.
 import { handle } from "@astrojs/cloudflare/handler"
 
+import { preflight } from "./lib/api.ts"
 import { tick } from "./lib/tick.ts"
 
 /** A status page's traffic spikes exactly when things are down. The page
@@ -15,14 +16,29 @@ const wantsJson = (request: Request): boolean => {
 
 export default {
   async fetch(request, env, ctx) {
+    if (request.method === "OPTIONS") return preflight()
+
     const url = new URL(request.url)
-    if (request.method === "GET" && url.pathname === "/" && !wantsJson(request)) {
+    const cacheable =
+      (request.method === "GET" || request.method === "HEAD") &&
+      url.pathname === "/" &&
+      !wantsJson(request)
+    if (cacheable) {
       const cache = caches.default
-      const hit = await cache.match(request)
-      if (hit) return hit
+      // A HEAD is the cheap question this page advertises, and the cache
+      // only keys on GET — so it asks the cache the GET question and
+      // answers with the headers alone.
+      const head = request.method === "HEAD"
+      const key = head ? new Request(url.toString(), { headers: request.headers }) : request
+      const hit = await cache.match(key)
+      if (hit) return head ? new Response(null, { status: hit.status, headers: hit.headers }) : hit
       const res = await handle(request, env, ctx)
-      if (res.status === 200 && (res.headers.get("content-type") ?? "").includes("text/html"))
-        ctx.waitUntil(cache.put(request, res.clone()))
+      if (
+        !head &&
+        res.status === 200 &&
+        (res.headers.get("content-type") ?? "").includes("text/html")
+      )
+        ctx.waitUntil(cache.put(key, res.clone()))
       return res
     }
     return handle(request, env, ctx)

@@ -26,8 +26,13 @@ jobs:
       # The build is the rest of the typecheck: it generates the route
       # tree and compiles the components tsc never sees.
       - run: bun run build
+      # The config the deploy actually uses is generated, not the one in
+      # the repository — so it is the generated one that has to be
+      # deployable. This needs no account.
+      - run: bunx wrangler deploy -c dist/server/wrangler.json --dry-run
       # The server target is the other half of the same source; a build
       # that only ever runs in a Dockerfile is a build nobody watches.
+      # It writes into the same dist/, so it goes last.
       - run: bun run build:server
 
   image:
