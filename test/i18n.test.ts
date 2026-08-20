@@ -47,3 +47,30 @@ describe("every language, none of them half-finished", () => {
     expect(langOf("de")).toBe("de")
   })
 })
+
+/** Whether the longer string is built on the shorter one's word. */
+function shares(whole: string, part: string): boolean {
+  return whole.toLocaleLowerCase().includes(part.toLocaleLowerCase())
+}
+
+// Three languages had a notice under two names — one in the heading and
+// the chip, another in the refusal and the aria label, which are the two
+// places a reader meets it when something has gone wrong.
+describe("one word for one thing", () => {
+  test("the severity of a notice is the word the section uses", () => {
+    const wrong = LANGS.filter((lang) => !shares(t(lang, "notices"), t(lang, "sev_info")))
+    expect(wrong).toEqual([])
+  })
+
+  test("an outage in the banner is an outage in the chip", () => {
+    const wrong = LANGS.filter((lang) => !shares(t(lang, "all_down"), t(lang, "sev_outage")))
+    expect(wrong).toEqual([])
+  })
+
+  test("a duration says where its language puts the word", () => {
+    // `after` is a pattern, so a language that drops the placeholder would
+    // publish an outage with no duration in it at all.
+    const wrong = LANGS.filter((lang) => !t(lang, "after").includes("{t}"))
+    expect(wrong).toEqual([])
+  })
+})
