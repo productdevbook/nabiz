@@ -4,13 +4,14 @@
 import { constants, createReadStream } from "node:fs"
 import { access, chmod, readFile, realpath, stat } from "node:fs/promises"
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
-import { extname, join, normalize, resolve, sep } from "node:path"
+import { extname, join, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { preflight } from "../lib/api.ts"
 import { tick } from "../lib/tick.ts"
 import { clientAddress, trustedHops } from "./address.ts"
 import { db, DB_PATH, env } from "./env.ts"
+import { insideClient } from "./paths.ts"
 
 type Next = () => void
 type Handler = (req: IncomingMessage, res: ServerResponse, next: Next) => void
@@ -56,23 +57,13 @@ async function serveStatic(req: IncomingMessage, res: ServerResponse): Promise<v
     res.writeHead(404).end()
     return
   }
-  let path: string
-  try {
-    // Decoded before it is normalised, or "%2e%2e%2f" is a directory name
-    // to look for rather than the climb it is.
-    path = decodeURIComponent(new URL(req.url ?? "/", "http://host").pathname)
-  } catch {
-    res.writeHead(400).end()
-    return
-  }
-  const asked = join(client, normalize(path))
-  // A path that climbs out of the client directory is not a typo to serve,
-  // and neither is a sibling directory whose name begins with the same
-  // letters.
-  if (!asked.startsWith(client + sep)) {
+  const asked = insideClient(client, req.url ?? "/")
+  if (asked === null) {
     res.writeHead(404).end()
     return
   }
+  const path = new URL(req.url ?? "/", "http://host").pathname
+
   try {
     // The built directory is what is served, not wherever a link in it
     // points: the check above is on the name, this one is on the file.
