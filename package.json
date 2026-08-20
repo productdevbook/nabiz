@@ -1,6 +1,6 @@
 {
   "name": "nabiz",
-  "version": "3.8.0",
+  "version": "3.9.0",
   "private": true,
   "type": "module",
   "description": "A status page that keeps beating when your server does not — one Cloudflare Worker, or one container you own.",
