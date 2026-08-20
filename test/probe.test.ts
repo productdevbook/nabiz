@@ -163,3 +163,137 @@ describe("a failure says which kind of failure it was", () => {
     }
   })
 })
+
+/** An origin that answers and then keeps talking. `made` counts what it
+ *  actually produced, so a cap can be measured rather than assumed. */
+function talking(chunk: number, chunks: number, word?: { at: number; text: string }) {
+  const made = { bytes: 0 }
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (made.bytes >= chunk * chunks) {
+        controller.close()
+        return
+      }
+      const part = new Uint8Array(chunk).fill(0x61)
+      if (word !== undefined && word.at >= made.bytes && word.at < made.bytes + chunk)
+        new TextEncoder().encodeInto(word.text, part.subarray(word.at - made.bytes))
+      made.bytes += chunk
+      controller.enqueue(part)
+    },
+  })
+  return { made, body }
+}
+
+describe("a body is read, and only so much of it", () => {
+  test("an answer that never ends is still an answer, and costs a fixed read", async () => {
+    const origin = talking(16 * 1024, 4096)
+    const watch = answering(() => Promise.resolve(new Response(origin.body, { status: 200 })))
+    try {
+      const r = await probe(monitor())
+      expect(r.ok).toBe(true)
+      // 64 KiB, whatever the origin had queued behind it.
+      expect(origin.made.bytes <= 64 * 1024 + 16 * 1024).toBe(true)
+    } finally {
+      watch.done()
+    }
+  })
+
+  test("a chunk larger than the cap is cut, not taken whole", async () => {
+    // One megabyte in a single chunk, with the word past the cap inside
+    // it: taking the chunk whole because it is the first would make the
+    // runtime's chunk size decide how much of a body is read.
+    const origin = talking(1024 * 1024, 1, { at: 70_000, text: "ready" })
+    const watch = answering(() => Promise.resolve(new Response(origin.body, { status: 200 })))
+    try {
+      const r = await probe(monitor({ expect_body: "ready" }))
+      expect(r.ok).toBe(false)
+      expect(r.reason).toBe("body")
+    } finally {
+      watch.done()
+    }
+  })
+
+  test("the promised words are found up to the cap and not beyond it", async () => {
+    const near = talking(64 * 1024, 2, { at: 65_000, text: "ready" })
+    let watch = answering(() => Promise.resolve(new Response(near.body, { status: 200 })))
+    try {
+      expect((await probe(monitor({ expect_body: "ready" }))).ok).toBe(true)
+    } finally {
+      watch.done()
+    }
+    const far = talking(64 * 1024, 4, { at: 200_000, text: "ready" })
+    watch = answering(() => Promise.resolve(new Response(far.body, { status: 200 })))
+    try {
+      const r = await probe(monitor({ expect_body: "ready" }))
+      expect(r.ok).toBe(false)
+      expect(r.reason).toBe("body")
+      expect(r.status).toBe(200)
+    } finally {
+      watch.done()
+    }
+  })
+
+  test("latency is time to the answer, not time to the body", async () => {
+    const slow = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        await new Promise((go) => setTimeout(go, 120))
+        controller.enqueue(new Uint8Array(8).fill(0x61))
+        controller.close()
+      },
+    })
+    const watch = answering(() => Promise.resolve(new Response(slow, { status: 200 })))
+    try {
+      const r = await probe(monitor())
+      expect(r.ok).toBe(true)
+      // The body took 120 ms; the answer took none of it.
+      expect(r.ms < 60).toBe(true)
+    } finally {
+      watch.done()
+    }
+  })
+
+  test("an answer that stops halfway keeps the status it was given", async () => {
+    const broken = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.enqueue(new Uint8Array(16).fill(0x61))
+        controller.error(new Error("the connection went away"))
+      },
+    })
+    const watch = answering(() => Promise.resolve(new Response(broken, { status: 200 })))
+    try {
+      const r = await probe(monitor())
+      expect(r.ok).toBe(false)
+      expect(r.status).toBe(200)
+      expect(r.reason).toBe("incomplete")
+    } finally {
+      watch.done()
+    }
+  })
+
+  test("a body that runs out our clock is a timeout, not the host stopping", async () => {
+    let signal: AbortSignal | undefined
+    const real = globalThis.fetch
+    globalThis.fetch = ((_url: string, init: { signal?: AbortSignal }) => {
+      signal = init.signal
+      const stalls = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          return new Promise((_, fail) =>
+            signal?.addEventListener("abort", () => {
+              controller.error(new Error("aborted"))
+              fail(new Error("aborted"))
+            }),
+          )
+        },
+      })
+      return Promise.resolve(new Response(stalls, { status: 200 }))
+    }) as unknown as typeof globalThis.fetch
+    try {
+      const r = await probe(monitor({ timeout_ms: 40 }))
+      expect(r.ok).toBe(false)
+      expect(r.status).toBe(200)
+      expect(r.reason).toBe("timeout")
+    } finally {
+      globalThis.fetch = real
+    }
+  })
+})

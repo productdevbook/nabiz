@@ -49,8 +49,13 @@ async function firstOf(response: Response, cap: number): Promise<string> {
   let seen = 0
   const cut = new TransformStream<Uint8Array, Uint8Array>({
     transform(chunk, controller) {
-      seen += chunk.byteLength
-      controller.enqueue(chunk)
+      // The chunk is cut rather than taken whole: a runtime that hands
+      // over 64 KiB at a time would otherwise make the cap twice what it
+      // says, and which runtime it is would decide how much.
+      const room = cap - seen
+      const kept = chunk.byteLength <= room ? chunk : chunk.subarray(0, room)
+      seen += kept.byteLength
+      controller.enqueue(kept)
       // Enough to answer the question; the rest is the origin's business.
       if (seen >= cap) controller.terminate()
     },
@@ -78,6 +83,11 @@ export async function probe(monitor: Monitor, deadline?: AbortSignal): Promise<P
     })
     const answered = response.status === monitor.expect_status
     code = response.status
+    // Time to the answer, not time to the body: reading the body is what
+    // catches a host that stops halfway, but charging its size to the
+    // latency chart would put a step in every deployment's history at the
+    // release that started reading it.
+    const ms = Date.now() - started
     // Always read something: a host that sends headers and then stops is a
     // host no browser can load, and reading nothing published it as up
     // with a three-millisecond latency beside it.
@@ -87,7 +97,7 @@ export async function probe(monitor: Monitor, deadline?: AbortSignal): Promise<P
       monitor,
       ok: said,
       status: response.status,
-      ms: Date.now() - started,
+      ms,
       // A 200 without the promised words is a failure whose reason is not
       // the status code — saying "HTTP 200" about a red row is the one
       // answer that makes the page look broken instead of the target.
@@ -96,13 +106,16 @@ export async function probe(monitor: Monitor, deadline?: AbortSignal): Promise<P
   } catch {
     // Our own signal stopped it, or the connection never happened. Both
     // runtimes agree on that much and on nothing finer — except that an
-    // answer we had already been given is not "nothing answered".
+    // answer we had already been given is not "nothing answered". A clock
+    // that ran out is a timeout whether or not a status arrived first:
+    // reporting "answered, then stopped" about our own deadline blames the
+    // host for a budget it never saw.
     return {
       monitor,
       ok: false,
       status: code,
       ms: Date.now() - started,
-      reason: code !== null ? "incomplete" : signal.aborted ? "timeout" : "unreachable",
+      reason: signal.aborted ? "timeout" : code !== null ? "incomplete" : "unreachable",
     }
   }
 }
