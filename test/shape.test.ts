@@ -508,17 +508,29 @@ describe("a group's history is nobody's bad day alone", () => {
     return rows(base)[0]
   }
 
-  test("one member's bad day is not the group's, at any size", () => {
-    // The same rule the state line follows: half of a group of two is one
-    // customer, and one customer's outage is not the group's to publish.
-    expect(groupOf([100, 40])?.days?.[0]?.ok).toBe(100)
-    expect(groupOf([100, 100, 40])?.days?.[0]?.ok).toBe(100)
-    expect(groupOf([100, 100, 100, 40])?.days?.[0]?.ok).toBe(100)
+  test("a day the group publishes is a day one of its members had", () => {
+    for (const oks of [[99], [100, 40], [100, 100, 40], [100, 40, 40], [100, 100, 40, 40]]) {
+      const published = groupOf(oks)?.days?.[0]
+      expect(published?.total).toBe(100)
+      expect(oks).toContain(published?.ok)
+    }
   })
 
-  test("two of them is a bad day, and the group says so", () => {
-    expect(groupOf([100, 40, 40])?.days?.[0]?.ok).toBe(40)
-    expect(groupOf([100, 100, 40, 40])?.days?.[0]?.ok).toBe(40)
+  test("a group of one member publishes that member's day, not an empty one", () => {
+    // Reaching past the end of the ranking and spreading `undefined` gave
+    // a row with no day, no total and no ok — which uptimeOf summed to NaN
+    // and the page printed as "NaN %".
+    const published = groupOf([99])?.days?.[0]
+    expect(published?.ok).toBe(99)
+    expect(published?.day).toBe("2026-08-20")
+    expect(Number.isNaN(Number(published?.total))).toBe(false)
+  })
+
+  test("the group is never better than every member it stands for", () => {
+    // Two members down thirty percent of the time, never on the same day,
+    // published as a hundred percent — a figure neither of them had.
+    expect(groupOf([70, 100])?.days?.[0]?.ok).toBe(70)
+    expect(groupOf([100, 70])?.days?.[0]?.ok).toBe(70)
   })
 
   test("what is published is a real member's row, never an average", () => {
