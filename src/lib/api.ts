@@ -176,8 +176,10 @@ export function llms(origin: string, title: string): Response {
 
 > A status page run by nabiz (https://github.com/productdevbook/nabiz). The
 > services listed on it are probed once a minute and ninety days of history
-> are kept. Everything here is public, read-only, CORS-open and uncached:
-> what you get is what is true at the moment you asked.
+> are kept. Everything here is public, read-only and CORS-open. The JSON,
+> the feed and the badge are uncached — what you get is what is true at the
+> moment you asked. The HTML page may be held at the edge for fifteen
+> seconds, which is less than the time between two probes.
 
 A monitor marked as a group stands for several hosts that are served here
 but named elsewhere; neither their names nor their number is published.
@@ -230,8 +232,9 @@ Authorization: Bearer <token> and a JSON body of {"body": "markdown",
 "all|en|tr|de|es|fr"}; POST ${origin}/api/notice/resolve with the same
 header and {"id": n}.
 
-Ten guesses at the token a minute per address; a refusal carries
-retry-after.
+Ten guesses at the token a minute per address, counted in the memory of
+whichever process answered — so on Cloudflare, where there are many, it is
+a brake rather than a limit. A refusal carries retry-after.
 
 ## Optional
 

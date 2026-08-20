@@ -184,8 +184,10 @@ async function main(): Promise<void> {
 
   let round: Promise<void> | null = null
   let beating = false
-  // Zero, not now: the Workers cron prunes on the wall clock, and a
-  // process restarted more often than hourly would otherwise never sweep.
+  // Zero, not now: the Workers cron prunes on the wall clock, a process
+  // restarted more often than hourly would otherwise never sweep, and a
+  // restart is the documented way to clear a deleted monitor's rows before
+  // its id is handed to the next one.
   let swept = 0
   const beat = async (): Promise<void> => {
     // A round that outlives its interval must not have a second one on top

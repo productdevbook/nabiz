@@ -79,7 +79,14 @@ page, from `status.json`, from the history, the badge, the feed and the
 events list — `monitors()` reads `WHERE enabled = 1` and everything is
 built from that. Set it back to `1` and the whole history returns.
 
-Deleting the row instead throws the history away: `monitors.id` is a
-SQLite rowid, so the next monitor you insert can be handed the same id,
-and the sweep that runs each hour is what stops it inheriting a stranger's
-uptime. Disable rather than delete if you want the bars back later.
+Deleting the row is different, and sharper than it looks: `monitors.id` is
+a SQLite rowid, so the next monitor you insert can be handed the same id —
+and with it the deleted monitor's checks, days, state and events. A brand
+new monitor then opens with somebody else's uptime, or with somebody
+else's outage and an alert to match.
+
+The hourly sweep clears rows no monitor owns, but only while nobody owns
+them: once the id has been handed out they are not orphans any more. So
+either disable rather than delete, or leave an hour — or a restart of a
+self-hosted deployment, which sweeps on start — between the delete and the
+next insert.

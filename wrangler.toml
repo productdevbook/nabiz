@@ -29,6 +29,8 @@ TITLE = "nabiz"
 #   TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID — a message on every state change
 #   ALERT_WEBHOOK_URL                     — the same, as JSON to your own endpoint
 
-# To serve on your own hostname, uncomment and let Cloudflare make the DNS:
+# To serve on your own hostname, uncomment and let Cloudflare make the DNS.
+# Worth doing for more than the address: the page's edge cache does nothing
+# on a workers.dev deployment.
 # routes = [{ pattern = "status.example.com", custom_domain = true }]
 

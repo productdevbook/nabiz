@@ -115,18 +115,25 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
 }
 
 /** Raw checks feed only the current-latency figure; two days is plenty.
- *  Events tell a longer story and get half a year.
+ *  Events tell a longer story and get half a year, and the daily rollup a
+ *  year — the page draws ninety of them.
  *
- *  A deleted monitor leaves its rows behind, and `monitors.id` is a rowid —
- *  SQLite hands the freed one to the next monitor inserted, which would
- *  then wear a stranger's uptime. The sweep is what stops that history
- *  from finding a new owner. */
+ *  It also clears what no monitor owns any more. That is housekeeping, not
+ *  a guarantee: `monitors.id` is a rowid, so a monitor inserted after one
+ *  is deleted can be handed the same id and everything left behind with
+ *  it. Disabling is what keeps a history safely; deleting is what needs
+ *  this sweep to have run in between. */
 export async function prune(db: Db): Promise<void> {
+  const now = Date.now()
+  const before = (days: number) => now - days * 24 * 3600 * 1000
   const orphans = (table: string) =>
     db.prepare(`DELETE FROM ${table} WHERE monitor_id NOT IN (SELECT id FROM monitors)`)
   await db.batch([
-    db.prepare("DELETE FROM checks WHERE at < ?").bind(Date.now() - 2 * 24 * 3600 * 1000),
-    db.prepare("DELETE FROM events WHERE at < ?").bind(Date.now() - 180 * 24 * 3600 * 1000),
+    db.prepare("DELETE FROM checks WHERE at < ?").bind(before(2)),
+    db.prepare("DELETE FROM events WHERE at < ?").bind(before(180)),
+    db
+      .prepare("DELETE FROM days WHERE day < ?")
+      .bind(new Date(before(365)).toISOString().slice(0, 10)),
     orphans("checks"),
     orphans("days"),
     orphans("events"),

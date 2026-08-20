@@ -19,6 +19,11 @@ there.
 
 ## Your own hostname
 
+Not only for the address: **the edge cache does not work on a
+`workers.dev` deployment**, and the page relies on it to stay up when a
+crowd arrives at once. Cloudflare's cache is a no-op there, and the two
+calls it makes still count against the fifty. Give it a route.
+
 Uncomment `routes` in `wrangler.toml` and let Cloudflare make the DNS:
 
 ```toml
@@ -38,8 +43,13 @@ Every name and what it does: [Configuration](configuration.md).
 
 ## Limits
 
-- The free tier allows 50 subrequests per invocation — about 45 monitors.
-  Beyond that, split the cron.
+- The free tier allows 50 subrequests per invocation, and a probe, a
+  database call and a cache call all count as one. A quiet round costs the
+  number of monitors plus three; a round with a state change, both alert
+  channels and the hourly sweep costs plus seven. That puts the ceiling at
+  **43 monitors**; beyond it, split the cron. What failure looks like is
+  worth knowing: the alert is the last thing in the round, so the first
+  thing to be refused is the message telling you about the outage.
 - Probes leave from Cloudflare's edge, so anything behind a firewall is
   unreachable from here. That is what [self-hosting](self-hosting.md) is
   for, and the two deployments are complementary: one watches the network
