@@ -312,23 +312,55 @@ describe("a row that says it is grouped is never published by name", () => {
     expect(view).toEqual([])
   })
 
-  test("a group that comes all the way back says so once", () => {
+  test("a group that comes all the way back says so where it crossed", () => {
     const members = [1, 2, 3].map(() => monitor({ grouped: 1, group_name: "Hosted sites" }))
     const up = new Map(members.map((m) => [m.id, { ok: true }]))
-    // Newest first: everyone recovered, having all been down.
+    // Newest first: three members returning, one at a time. The group
+    // stopped being down when the second of them came back, not the third.
     const view = eventsView(
       members,
       [
         { monitor_id: members[2]?.id ?? 0, at: 40, ok: 1 },
         { monitor_id: members[1]?.id ?? 0, at: 30, ok: 1 },
         { monitor_id: members[0]?.id ?? 0, at: 20, ok: 1 },
-        { monitor_id: members[0]?.id ?? 0, at: 10, ok: 0 },
       ],
       up,
     )
-    const recoveries = view.filter((e) => e.ok)
-    expect(recoveries.length).toBe(1)
-    expect(recoveries[0]?.at).toBe(40)
+    expect(view).toEqual([{ label: "Hosted sites", at: 30, ok: true }])
+  })
+
+  // A recovery published without the outage it ends is an item a
+  // subscriber cannot make sense of — and the row above it never said the
+  // group was down.
+  test("a member's blip announces nothing at all", () => {
+    const members = [1, 2, 3, 4, 5].map(() => monitor({ grouped: 1, group_name: "Hosted sites" }))
+    const up = new Map(members.map((m) => [m.id, { ok: true }]))
+    const one = members[1]?.id ?? 0
+    const view = eventsView(
+      members,
+      [
+        { monitor_id: one, at: 200, ok: 1 },
+        { monitor_id: one, at: 100, ok: 0 },
+      ],
+      up,
+    )
+    expect(view).toEqual([])
+  })
+
+  test("an outage and its end are one line each, or neither", () => {
+    const [a, b] = [1, 2].map(() => monitor({ grouped: 1, group_name: "Hosted sites" }))
+    const up = new Map([a as Monitor, b as Monitor].map((m) => [m.id, { ok: true }]))
+    const view = eventsView(
+      [a as Monitor, b as Monitor],
+      [
+        { monitor_id: (b as Monitor).id, at: 400, ok: 1 },
+        { monitor_id: (a as Monitor).id, at: 300, ok: 1 },
+        { monitor_id: (b as Monitor).id, at: 200, ok: 0 },
+        { monitor_id: (a as Monitor).id, at: 100, ok: 0 },
+      ],
+      up,
+    )
+    expect(view.map((e) => e.ok)).toEqual([true, false])
   })
 
   test("a monitor speaking for itself is untouched", () => {

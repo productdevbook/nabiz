@@ -5,7 +5,7 @@ import { statusJson } from "../lib/api.ts"
 import { langOf, LANGS, NAMES, t } from "../lib/i18n.ts"
 import { callout, eventLine, pastNotice, serviceRow, when, WINDOW } from "../lib/render.ts"
 import { eventsView, overall, rows } from "../lib/shape.ts"
-import { forPage, notices, recentEvents } from "../lib/store.ts"
+import { EVENT_ROWS, forPage, notices, recentEvents } from "../lib/store.ts"
 
 const lang = langOf(Astro.url.searchParams.get("lang") || env.LANG)
 const title = env.TITLE ?? "nabiz"
@@ -13,7 +13,7 @@ const title = env.TITLE ?? "nabiz"
 const data = await forPage(env.DB, WINDOW)
 // Read wide, shown narrow: a group's members write an event each and
 // the view collapses them, so a slice of ten rows could collapse to one.
-const events = await recentEvents(env.DB, 120)
+const events = await recentEvents(env.DB, EVENT_ROWS)
 
 // An agent that asks for JSON gets the JSON, no second request needed.
 const accept = Astro.request.headers.get("accept") ?? ""

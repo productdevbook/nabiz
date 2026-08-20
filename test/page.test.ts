@@ -16,6 +16,7 @@ const BODY = `
   </select></div>
   <p id="say"></p>
   <main><p class="hero-s">Tüm sistemler çalışıyor</p>
+    <article class="callout" data-notice="1" data-open></article>
     <a id="pen" href="#notice">n</a><a href="/feed.xml">panel</a></main>
   <footer><a href="/feed.xml">RSS</a><a href="/llms.txt">llms</a></footer>
   <dialog id="ed"><div class="seg" id="sev">
@@ -253,6 +254,22 @@ describe("a refusal says which refusal it was", () => {
 })
 
 describe("the script and the page agree on what is in the page", () => {
+  // The fixture below is hand-built, so a class the component renames would
+  // leave every test above passing against a page that no longer exists.
+  // Tag-only selectors are skipped: they name nothing that can be renamed.
+  test("every class and attribute the script selects is in the markup and the fixture", () => {
+    const markup = astro + readFileSync(new URL("../src/lib/render.ts", import.meta.url), "utf8")
+    const named = [...script.matchAll(/querySelector(?:All)?\("([^"]+)"\)/g)]
+      .map((m) => m[1] as string)
+      .flatMap((sel) => sel.match(/(?:\.[\w-]+|#[\w-]+|\[[\w-]+\])/g) ?? [])
+    expect(named.length).toBeGreaterThan(3)
+    const missing = [...new Set(named)].filter((part) => {
+      const name = part.replace(/^[.#]/, "").replace(/[[\]]/g, "")
+      return !markup.includes(name) || !BODY.includes(name)
+    })
+    expect(missing).toEqual([])
+  })
+
   test("every element the script asks for by id is in the markup", () => {
     const asked = [...script.matchAll(/getElementById\("([^"]+)"\)/g)].map((m) => m[1] as string)
     expect(asked.length).toBeGreaterThan(5)

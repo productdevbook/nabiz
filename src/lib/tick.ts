@@ -9,21 +9,28 @@ export interface TickEnv extends AlertEnv {
   LANG?: string
 }
 
-/** One round of probing, wherever the clock comes from: the Workers cron
- *  or an interval in a process somebody owns. Returns what changed. */
-/** A round has to end before the next one is due. Six probes wait for
- *  headers at a time on Workers, so a general outage with generous
- *  timeouts would otherwise queue past the minute and have the next cron
- *  land on top of it — two rounds writing the same minute, two recovery
- *  alerts for one recovery. A probe that has not answered by then has
- *  failed, which is what a status page would say about it anyway. */
+/** Three quarters of a minute, for the deployment that probes once a
+ *  minute. A round has to end before the next one is due: six probes wait
+ *  for headers at a time on Workers, so a general outage with generous
+ *  timeouts would queue past the interval and have the next round land on
+ *  top of it — two rounds writing the same minute, two recovery alerts for
+ *  one recovery. A probe that has not answered by then has failed, which
+ *  is what a status page would say about it anyway. */
 const ROUND_MS = 45_000
 
-export async function tick(db: Db, env: TickEnv, sweep: boolean): Promise<number> {
+/** One round of probing, from whatever holds the clock. `within` is how
+ *  long the round may take; a deployment that probes more often than once
+ *  a minute passes its own. Returns what changed. */
+export async function tick(
+  db: Db,
+  env: TickEnv,
+  sweep: boolean,
+  within = ROUND_MS,
+): Promise<number> {
   const watched = await monitors(db)
   if (watched.length === 0) return 0
 
-  const deadline = AbortSignal.timeout(ROUND_MS)
+  const deadline = AbortSignal.timeout(within)
   const results = await Promise.all(watched.map((m) => probe(m, deadline)))
   const changes = await record(db, results)
   await alert(env, changes, langOf(env.LANG))

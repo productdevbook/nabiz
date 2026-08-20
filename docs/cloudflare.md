@@ -45,7 +45,8 @@ Every name and what it does: [Configuration](configuration.md).
 
 - The free tier allows 50 subrequests per invocation, and a probe, a
   database call and a cache call all count as one. A quiet round costs the
-  number of monitors plus three; a round with a state change, both alert
+  number of monitors plus four — one to read the monitors and three to
+  write the round; a round with a state change, both alert
   channels and the hourly sweep costs plus seven. That puts the ceiling at
   **43 monitors**; beyond it, split the cron. What failure looks like is
   worth knowing: the alert is the last thing in the round, so the first

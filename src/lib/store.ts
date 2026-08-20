@@ -147,6 +147,13 @@ export interface EventRow {
   ok: number
 }
 
+/** How many event rows a page reads before the view collapses them. A
+ *  group's members write one each and a group in permanent trouble writes
+ *  many that collapse to none, so the read has to be much wider than the
+ *  list — and the same width everywhere, or the page, the JSON and the
+ *  feed disagree about what happened. */
+export const EVENT_ROWS = 400
+
 export async function recentEvents(db: Db, limit: number): Promise<EventRow[]> {
   // Joined rather than filtered afterwards: a disabled monitor's events are
   // not shown, and taking the limit first let a flapping one nobody watches

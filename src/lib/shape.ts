@@ -162,28 +162,14 @@ export interface EventView {
   ok: boolean
 }
 
-/** A group's own state, which is what its line on the page says. */
-type GroupState = "unknown" | "up" | "partial" | "down"
-
-function stateOf(down: number, known: number): GroupState {
-  if (known === 0) return "unknown"
-  if (down === 0) return "up"
-  return down / known >= GROUP_OUTAGE ? "down" : "partial"
+/** Whether the group is down: the same line its row is drawn at, and the
+ *  only line its events are drawn at. Anything else — a member falling
+ *  while the rest hold, a member returning while others are still dark —
+ *  is the group's weather, and the row already says "partly up". */
+function isDown(down: number, known: number): boolean {
+  return known > 0 && down / known >= GROUP_OUTAGE
 }
 
-/** Events as the page tells them: a monitor speaks for itself, and a group
- *  speaks only when the group's own state changed.
- *
- *  A group's members write one event each, so printing them is printing the
- *  members — five lines is five customers, whether they fall in the same
- *  round or on five different afternoons. And a member falling is not the
- *  group falling: the row says "partly up" at one of five, so a line
- *  underneath it saying "down" contradicts the row above it.
- *
- *  The walk is backwards, from the state the page is in now: an event says
- *  what a member became, so before it the member was the other thing. That
- *  is what makes the group's history readable from a slice of events rather
- *  than from all of them. */
 export function eventsView(
   monitors: Monitor[],
   events: EventRow[],
@@ -216,17 +202,12 @@ export function eventsView(
     }
     const group = groups.get(name)
     if (group === undefined) continue
-    const after = stateOf(group.down.size, group.known)
+    const after = isDown(group.down.size, group.known)
     if (e.ok) group.down.add(m.id)
     else group.down.delete(m.id)
-    const before = stateOf(group.down.size, group.known)
+    const before = isDown(group.down.size, group.known)
     if (after === before) continue
-    // Only the two the row has words for: the group went down, or the group
-    // came all the way back. A member coming and going in between is the
-    // group's weather, and it is nobody's business how many there are.
-    if (after === "down") out.push({ label: name, at: e.at, ok: false })
-    else if (after === "up") out.push({ label: name, at: e.at, ok: true })
-    else continue
+    out.push({ label: name, at: e.at, ok: !after })
     if (out.length >= limit) break
   }
   return out

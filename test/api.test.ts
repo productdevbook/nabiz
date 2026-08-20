@@ -106,7 +106,9 @@ const notice = (text: string): Notice => ({
 })
 
 /** Every & in a well-formed document opens an entity, and XML carries no
- *  control character but tab, newline and carriage return. */
+ *  control character but tab, newline and carriage return. Angle brackets
+ *  are checked by counting elements, below: a title that closes its own
+ *  tag is well-formed and still a forgery. */
 function illFormed(xml: string): string[] {
   const wrong: string[] = []
   for (const m of xml.matchAll(/&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/g))
@@ -119,7 +121,25 @@ function illFormed(xml: string): string[] {
   return wrong
 }
 
+const items = (xml: string) => xml.split("<item>").length - 1
+
 describe("the feed stays readable whatever is written into it", () => {
+  test("a name that closes its own tag does not become an item of its own", async () => {
+    const monitors = [monitor({ name: "</title></item><item><title>forged" })]
+    const events = [{ monitor_id: 1, at: 1_700_000_000_000, ok: 0 }]
+    const xml = await feed(
+      "https://status.example.com",
+      "t",
+      page(monitors),
+      events,
+      [],
+      "en",
+    ).text()
+    expect(illFormed(xml)).toEqual([])
+    expect(items(xml)).toBe(1)
+    expect(xml).toContain("&lt;/title&gt;&lt;/item&gt;")
+  })
+
   test("a title cut at a hundred characters is cut before it is escaped", async () => {
     // The ampersand sits where the cut lands, so escaping first would leave
     // half an entity behind — and half an entity costs the whole document.

@@ -197,7 +197,9 @@ async function main(): Promise<void> {
     beating = true
     try {
       const sweep = Date.now() - swept >= 3600_000
-      await tick(db, env, sweep)
+      // The round has to end before the next one is due, whatever "due"
+      // was set to.
+      await tick(db, env, sweep, Math.max(2_000, Math.round(interval * 0.75)))
       // Only a round that finished counts as the hour's sweep; the one
       // that failed on a full disk is the one that needed to prune.
       if (sweep) swept = Date.now()
@@ -209,7 +211,10 @@ async function main(): Promise<void> {
   }
 
   const start = () => {
-    round = beat()
+    // Only a round that actually starts is the round to wait for: assigning
+    // on every tick would replace it with an already-finished promise, in
+    // exactly the case the guard exists for.
+    if (!beating) round = beat()
   }
   const timer = setInterval(start, interval)
   start()

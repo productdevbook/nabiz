@@ -15,7 +15,7 @@ From [`schema.sql`](../schema.sql):
 | `url` | — | what is fetched |
 | `method` | `GET` | any HTTP method |
 | `expect_status` | `200` | anything else is a failure; redirects are not followed |
-| `timeout_ms` | `10000` | a probe that takes longer has failed |
+| `timeout_ms` | `10000` | a probe that takes longer has failed — as does one still waiting when the round's own deadline arrives, which is three quarters of the interval |
 | `expect_body` | `NULL` | when set, a 200 without these words is still a failure |
 | `fail_threshold` | `2` | consecutive failures before a watched monitor is called down; the very first probe is believed at once, since there is no state to keep |
 | `group_name` | `NULL` | the heading it appears under |
