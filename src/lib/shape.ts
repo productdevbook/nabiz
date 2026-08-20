@@ -90,8 +90,13 @@ function medianDays(lists: DayRow[][]): DayRow[] {
  *  proportional to how many members it hides — and a request that pays it
  *  every time publishes that number as latency, which is the one number
  *  this page exists not to publish. Keyed on the data itself, which the
- *  store already holds for a window. */
-const shaped = new WeakMap<PageData, Row[]>()
+ *  store already holds for a window, and pinned like that hold: a server
+ *  instantiates this module twice, and the round warms the copy the page
+ *  does not read. */
+const shaped = ((globalThis as { nabizRows?: WeakMap<PageData, Row[]> }).nabizRows ??= new WeakMap<
+  PageData,
+  Row[]
+>())
 
 export function rows(data: PageData): Row[] {
   const held = shaped.get(data)

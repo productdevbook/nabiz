@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url"
 import { preflight } from "../lib/api.ts"
 import { migrate } from "../lib/migrate.ts"
 import { WINDOW } from "../lib/render.ts"
+import { rows } from "../lib/shape.ts"
 import { forPage, holdFor } from "../lib/store.ts"
 import { tick } from "../lib/tick.ts"
 import { clientAddress, trustedHops } from "./address.ts"
@@ -212,10 +213,12 @@ async function main(): Promise<void> {
       // The round has to end before the next one is due, whatever "due"
       // was set to.
       await tick(db, env, sweep, Math.max(2_000, Math.round(interval * 0.75)))
-      // Rebuilt here rather than by whoever asks first: the read is
-      // proportional to what is watched, and paying for it inside a request
-      // is how long that work takes, visible from outside.
-      await forPage(db, WINDOW).catch(() => {})
+      // Rebuilt here rather than by whoever asks first: the read and the
+      // shaping are both proportional to what is watched, and paying for
+      // either inside a request is how long that work takes, visible from
+      // outside.
+      const page = await forPage(db, WINDOW).catch(() => null)
+      if (page !== null) rows(page)
       // Only a round that finished counts as the hour's sweep; the one
       // that failed on a full disk is the one that needed to prune.
       if (sweep) swept = Date.now()
