@@ -88,6 +88,7 @@ export async function alert(
       to("telegram", () =>
         fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
           method: "POST",
+          redirect: "manual",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ chat_id: env.TELEGRAM_CHAT_ID, text }),
           signal: AbortSignal.timeout(within),
