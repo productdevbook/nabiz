@@ -29,10 +29,11 @@ CREATE TABLE IF NOT EXISTS checks (
   monitor_id INTEGER NOT NULL,
   at INTEGER NOT NULL,
   ok INTEGER NOT NULL,
+  -- Read by nothing; kept because when a probe starts failing the first
+  -- question is always what it answered.
   status INTEGER,
   ms INTEGER
 );
-CREATE INDEX IF NOT EXISTS checks_by_monitor ON checks (monitor_id, at);
 -- Every read of this table asks for a window of time and nothing else: the
 -- last hour for the latency figure, the last day for the waveform, older
 -- than two days for the sweep. Leading on `at` is what lets those seek

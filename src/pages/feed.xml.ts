@@ -3,6 +3,7 @@ import { env } from "cloudflare:workers"
 
 import { feed } from "../lib/api.ts"
 import { langOf } from "../lib/i18n.ts"
+import { WINDOW } from "../lib/render.ts"
 import { forPage, notices, recentEvents } from "../lib/store.ts"
 
 export const GET: APIRoute = async ({ url }) => {
@@ -10,7 +11,7 @@ export const GET: APIRoute = async ({ url }) => {
   return feed(
     url.origin,
     env.TITLE ?? "nabiz",
-    await forPage(env.DB, 90),
+    await forPage(env.DB, WINDOW),
     await recentEvents(env.DB, 400),
     await notices(env.DB, 10, lang),
     lang,

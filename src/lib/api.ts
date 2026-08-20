@@ -2,7 +2,7 @@ import type { Db } from "./db.ts"
 import type { Lang } from "./i18n.ts"
 import { isLang, t } from "./i18n.ts"
 import { render } from "./markdown.ts"
-import { sevLabel } from "./render.ts"
+import { sevLabel, WINDOW } from "./render.ts"
 import type { Overall } from "./shape.ts"
 import { eventsView, overall, rows, uptimeOf } from "./shape.ts"
 import type { EventRow, Notice, PageData } from "./store.ts"
@@ -65,7 +65,7 @@ export function statusJson(data: PageData, events: EventRow[]): Response {
 export function historyJson(data: PageData): Response {
   const list = rows(data)
   return json({
-    window_days: 90,
+    window_days: WINDOW,
     monitors: list.map((r) => ({
       name: r.name,
       days: r.days.map((d) => ({

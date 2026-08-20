@@ -8,15 +8,11 @@
 @import "tailwindcss";
 
 @theme {
-  --color-ok: var(--ok);
-  --color-meh: var(--meh);
   --color-bad: var(--bad);
-  --color-info: var(--acc);
   --color-bg: var(--bg);
   --color-fg: var(--fg);
   --color-mut: var(--mut);
   --color-line: var(--line);
-  --color-none: var(--none);
 }
 
 @layer base {
@@ -199,9 +195,6 @@
   .panel-h h2 {
     @apply flex-1 text-[14.5px] font-semibold tracking-[-0.1px];
   }
-  .panel-h span {
-    @apply text-mut text-[12.5px] tabular-nums;
-  }
   .panel-h a {
     @apply text-mut hover:text-fg flex size-7 items-center justify-center rounded-[8px] no-underline;
     transition:
@@ -240,6 +233,9 @@
   }
   .hero .dot.bad {
     --hue: var(--bad);
+  }
+  .hero-t {
+    @apply min-w-0 flex-1;
   }
   .hero-s {
     @apply text-[20px] leading-tight font-semibold tracking-[-0.3px];
@@ -341,10 +337,6 @@
   }
 
   /* ---- sections ---- */
-  .sect {
-    @apply text-fg mt-9 mb-3.5 text-[15px] font-semibold tracking-[-0.1px] normal-case;
-    letter-spacing: -0.1px;
-  }
 
   /* ---- services: name and pill left, uptime the big right figure ---- */
   .svc {
@@ -509,7 +501,7 @@
   .foot-col {
     @apply flex min-w-[110px] flex-col gap-2;
   }
-  .foot-col h4 {
+  .foot-col h3 {
     @apply text-mut text-[11px] font-semibold tracking-[0.06em] uppercase;
   }
   .foot-col a {

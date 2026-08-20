@@ -5,7 +5,7 @@ import { t } from "./i18n.ts"
 import { render } from "./markdown.ts"
 import type { Row } from "./shape.ts"
 import { uptimeOf } from "./shape.ts"
-import type { DayRow, EventRow, Notice } from "./store.ts"
+import type { DayRow, Notice } from "./store.ts"
 
 export const WINDOW = 90
 
@@ -135,5 +135,3 @@ const ARROW_DOWN = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
 export function eventLine(e: { label: string; at: number; ok: boolean }, lang: Lang): string {
   return `<li><span class="dot ${e.ok ? "ok" : "bad"}">${e.ok ? ARROW_UP : ARROW_DOWN}</span><b>${esc(e.label)}</b><span class="what">${e.ok ? t(lang, "recovered") : t(lang, "down")}</span><time>${when(e.at)}</time></li>`
 }
-
-export type { EventRow }

@@ -20,6 +20,10 @@ bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE notices ADD COLUM
 # v3.0 → v3.1 — two indexes; nothing is rewritten, nothing is lost
 bunx wrangler d1 execute nabiz --remote --command "CREATE INDEX IF NOT EXISTS checks_by_time ON checks (at, ok, monitor_id, ms)"
 bunx wrangler d1 execute nabiz --remote --command "CREATE INDEX IF NOT EXISTS days_by_day ON days (day)"
+
+# v3.3 → v3.4 — an index no query has used since the two above arrived.
+# Optional: it costs a written row per probe and answers nothing.
+bunx wrangler d1 execute nabiz --remote --command "DROP INDEX IF EXISTS checks_by_monitor"
 ```
 
 A self-hosted deployment needs none of these by hand: `schema.sql` is

@@ -232,7 +232,7 @@ export function t(lang: Lang, key: Key): string {
   return strings[lang][key]
 }
 
-const known: ReadonlySet<string> = new Set(["en", "tr", "de", "es", "fr"])
+const known: ReadonlySet<string> = new Set(LANGS)
 
 export function isLang(value: string): value is Lang {
   return known.has(value)

@@ -21,7 +21,6 @@
   "devDependencies": {
     "@astrojs/node": "^11.1.4",
     "@cloudflare/workers-types": "^5.20260810.1",
-    "@tailwindcss/cli": "^4.3.3",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.2.0",
     "happy-dom": "^20.11.5",
