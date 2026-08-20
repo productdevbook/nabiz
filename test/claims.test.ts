@@ -22,8 +22,10 @@ function routeFile(path: string): string {
 }
 
 function routePaths(): string[] {
-  return walk("src/pages", ".ts")
-    .map((f) => f.replace(/^src\/pages/, "").replace(/\.ts$/, ""))
+  // `.astro` too: a page added as one was in no rule's list at all.
+  return [...walk("src/pages", ".ts"), ...walk("src/pages", ".astro")]
+    .map((f) => f.replace(/^src\/pages/, "").replace(/\.(ts|astro)$/, ""))
+    .filter((p) => p !== "/index")
     .concat("/")
 }
 
@@ -130,31 +132,45 @@ test("schema.sql creates every table before it creates any index", () => {
   // statement takes every statement under it with it: a v3.9.0 file put
   // an index over a new column above the notices table, so a database
   // upgrading from v1.0.0 lost the table rather than gained the index.
-  const sql = read("schema.sql")
-  // By keyword, not by substring: `create index` in lower case, and
-  // `CREATE UNIQUE INDEX`, both walked around the first version of this.
-  const at = (re: RegExp) => [...sql.matchAll(re)].map((m) => m.index as number)
-  const tables = at(/^\s*create\s+table\b/gim)
-  const indexes = at(/^\s*create\s+(unique\s+)?index\b/gim)
-  expect(tables.length).toBeGreaterThan(3)
-  expect(indexes.length).toBeGreaterThan(3)
-  expect(Math.min(...indexes) > Math.max(...tables)).toBe(true)
+  // By statement, not by line: lower case walked around the first version
+  // of this rule, `CREATE UNIQUE INDEX` the second, and an index riding
+  // the `);` that closes a table the third.
+  const sql = read("schema.sql").replace(/--[^\n]*/g, "")
+  const kinds = sql
+    .split(";")
+    .map((statement) => statement.trim())
+    .filter((statement) => statement !== "")
+    .map((statement) =>
+      /^create\s+table\b/i.test(statement)
+        ? "table"
+        : /^create\s+(unique\s+)?index\b/i.test(statement)
+          ? "index"
+          : "other",
+    )
+  expect(kinds.filter((k) => k === "table").length).toBeGreaterThan(3)
+  expect(kinds.filter((k) => k === "index").length).toBeGreaterThan(3)
+  expect(kinds.lastIndexOf("table") < kinds.indexOf("index")).toBe(true)
 })
 
 test("what the code publishes as its version is what the release is", () => {
   // The image tag comes from the git tag and the header comes from this
   // constant; nothing in the build compares them, so the workflow does.
-  const release = read(".github/workflows/release.yml")
+  // Comments stripped first: the second version of this rule was walked
+  // around by deleting both steps and leaving their words in a comment.
+  const release = read(".github/workflows/release.yml").replace(/^\s*#[^\n]*$/gm, "")
   const gate = release.indexOf("the tag, the package and the header agree")
   const check = release.indexOf("bun run check")
   const push = release.indexOf("push: true")
   expect(gate).toBeGreaterThan(-1)
   expect(check).toBeGreaterThan(-1)
   expect(push).toBeGreaterThan(-1)
-  // Before the push, or they guard nothing: the first version of this rule
-  // asked only that the two strings appeared somewhere in the file, and
-  // moving `bun run check` to the last step of the job passed it.
+  // Before the push, or they guard nothing: the first version asked only
+  // that the two strings appeared somewhere in the file, and moving
+  // `bun run check` to the last step of the job passed it.
   expect(gate < push && check < push).toBe(true)
+  // And a gate that cannot fail is not a gate.
+  expect(/continue-on-error/.test(release)).toBe(false)
+  expect(/bun run check\s*\|\|/.test(release)).toBe(false)
 })
 
 test("a document that lists the languages lists the ones there are", () => {

@@ -12,21 +12,33 @@ const ANSWERS = [...PAGES, "src/lib/api.ts"]
 const LIB = walk("src/lib", ".ts")
 
 test("an empty ?lang= is not an answer on any surface", () => {
-  // `get()` returns "" for `?lang=`, and "" ?? x is "" — so the fallback
-  // the deployment configured is thrown away. `||`, never `??`, and the
-  // exemption for `?? undefined` was the one that survived: it feeds ""
-  // to langOf, which answers English to a page that speaks Turkish.
+  // Not by the shape of the expression — an intermediate variable walked
+  // around that — but by the call: `langOf` takes the language to fall
+  // back to, and a page that has one and does not pass it answers English
+  // to a deployment that speaks Turkish.
   const wrong: string[] = []
   for (const f of PAGES)
-    for (const m of read(f).matchAll(/searchParams\.get\(\s*"lang"\s*\)\s*\?\?/g))
-      wrong.push(`${f}: ${m[0]}`)
-  // And the question itself is not enough: asking `has("lang")` says a
-  // language was named, not that one was given.
-  for (const f of PAGES)
-    if (/searchParams\.has\(\s*"lang"\s*\)/.test(read(f))) wrong.push(`${f}: has("lang")`)
+    for (const call of callsTo(read(f), "langOf")) {
+      const inner = call.slice(1, -1).trim()
+      // One argument is allowed for exactly one thing: the configured
+      // language itself, whose last resort is English. Anything else came
+      // from the request, and the request does not get to decide that a
+      // Turkish deployment answers in English. Named by what it is rather
+      // than by how it is spelled, because an intermediate variable walked
+      // around the first version of this rule.
+      if (/^(process\.)?env\.\w+$/.test(inner)) continue
+      let depth = 0
+      let commas = 0
+      for (const c of inner) {
+        if (c === "(") depth += 1
+        else if (c === ")") depth -= 1
+        else if (c === "," && depth === 0) commas += 1
+      }
+      if (commas === 0)
+        wrong.push(`${f}: langOf(${inner.slice(0, 40)}) with nothing to fall back to`)
+    }
   expect(wrong).toEqual([])
 })
-
 test("every read endpoint answers a page somewhere else", () => {
   // CORS-open is the courtesy this API advertises, and a preflight it
   // answers 204 to is a promise the real answer keeps too — including the
@@ -34,7 +46,9 @@ test("every read endpoint answers a page somewhere else", () => {
   const wrong: string[] = []
   for (const f of ANSWERS) {
     const text = read(f)
-    for (const call of [...callsTo(text, "new Response"), ...callsTo(text, "Response.json")]) {
+    for (const raw of [...callsTo(text, "new Response"), ...callsTo(text, "Response.json")]) {
+      // A comment saying the CDN adds the header is not the header.
+      const call = raw.replace(/\/\/[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "")
       // A response with no headers at all carries no CORS either; not
       // having any is not an exemption from having that one.
       // robots.txt is read by crawlers, never by a script in a page.
@@ -47,6 +61,12 @@ test("every read endpoint answers a page somewhere else", () => {
 })
 
 test("the page, the JSON and the feed read the same width of events", () => {
+  // Declared once, in the store. A local constant of the same name is a
+  // second width wearing the first one's clothes.
+  const shadowed = [...LIB, ...PAGES]
+    .filter((f) => !f.endsWith("store.ts"))
+    .filter((f) => /\b(const|let|var)\s+EVENT_ROWS\b/.test(read(f)))
+  expect(shadowed).toEqual([])
   // Three widths meant a group in permanent trouble emptied one surface
   // while another still had entries. One constant, or none of them agree.
   const wrong: string[] = []
@@ -80,10 +100,14 @@ test("nothing this process sends out follows a redirect or waits forever", () =>
     "src/worker.ts",
   ]) {
     const text = read(f)
-    for (const m of text.matchAll(/(?<![.\w])fetch\s*\(/g)) {
+    for (const m of text.matchAll(/fetch\s*\(/g)) {
+      const before = text.slice(Math.max(0, m.index - 20), m.index)
       // The worker's own `async fetch(request, env, ctx)` is the entry
       // point, not a call: what it answers is nothing this process sends.
-      if (/\b(async|function)\s+$/.test(text.slice(Math.max(0, m.index - 12), m.index))) continue
+      if (/\b(async|function)\s+$/.test(before)) continue
+      // A method on something else is somebody else's fetch — except
+      // `globalThis.fetch`, which is this one with a longer name.
+      if (/[.\w]$/.test(before) && !before.endsWith("globalThis.")) continue
       const call = callAt(text, m.index + m[0].length - 1)
       if (!/redirect:\s*"(manual|error)"/.test(call)) wrong.push(`${f}: follows redirects`)
       if (!/\bsignal\b\s*[,:]/.test(call)) wrong.push(`${f}: no deadline`)

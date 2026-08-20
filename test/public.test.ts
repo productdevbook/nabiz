@@ -36,6 +36,11 @@ const ALLOWED = new Set([
   // A loopback and a Kubernetes example that names no cluster.
   "127.0.0.1",
   "api.default.svc.cluster.local",
+  // Not hosts at all: Kubernetes API groups and label prefixes, which are
+  // spelled like domains and resolve to nothing.
+  "app.kubernetes.io",
+  "networking.k8s.io",
+  "kustomize.config.k8s.io",
 ])
 
 test("no host this repository names is somebody's", () => {
@@ -46,11 +51,30 @@ test("no host this repository names is somebody's", () => {
   expect(found).toEqual([])
 })
 
+test("no host is named without a scheme either", () => {
+  // The scheme rule reads what follows `http(s)://`, and a hostname in a
+  // table, a comment or a compose file has no scheme in front of it.
+  const wrong: string[] = []
+  for (const f of tracked()) {
+    // A stylesheet has no hostnames outside a url(), which the rule above
+    // reads; what it does have is chains of class selectors, and one of
+    // them ends in a word this pattern would take for a top-level domain.
+    if (f.endsWith(".css")) continue
+    for (const m of read(f).matchAll(
+      /\b[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)+\.(?:com|net|org|io|dev|co|uk|de|tr|app|cloud|sh|me|xyz|info|biz|local)\b/g,
+    ))
+      if (!ALLOWED.has(m[0])) wrong.push(`${f}: ${m[0]}`)
+  }
+  expect(wrong).toEqual([])
+})
+
 test("nothing here is shaped like a credential", () => {
   const shapes: [string, RegExp][] = [
     // A D1 database id, which names somebody's database.
     ["a database id", /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/],
-    ["a telegram bot token", /\bbot\d{6,}:[\w-]{20,}/],
+    // With or without the `bot` prefix the API asks for: a token is stored
+    // as the digits, a colon and the secret.
+    ["a telegram bot token", /\b\d{6,12}:[\w-]{25,}/],
     ["a telegram chat id", /(?<![\d\w])-100\d{9,}/],
     // Actions are pinned to commits on purpose; anywhere else a bare forty
     // hex characters is a secret more often than it is a commit.
@@ -58,9 +82,12 @@ test("nothing here is shaped like a credential", () => {
   ]
   const found: string[] = []
   for (const f of tracked()) {
-    if (f.startsWith(".github/")) continue
     const text = read(f)
-    for (const [what, re] of shapes) if (re.test(text)) found.push(`${f}: ${what}`)
+    for (const [what, re] of shapes) {
+      // Actions are pinned to commits on purpose, and only there.
+      if (what.includes("forty-character") && f.startsWith(".github/")) continue
+      if (re.test(text)) found.push(`${f}: ${what}`)
+    }
   }
   expect(found).toEqual([])
 })
