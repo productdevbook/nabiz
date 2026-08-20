@@ -143,13 +143,17 @@ function escXml(s: string): string {
 /** A notice's first line without the marks that make it markdown: the
  *  body renders, a title does not. */
 function plain(body: string): string {
-  return (body.split("\n")[0] ?? "")
-    .replace(/`([^`]*)`/g, "$1")
-    .replace(/\*\*([^*]*)\*\*/g, "$1")
-    .replace(/\*([^*]*)\*/g, "$1")
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/^#+\s*/, "")
-    .trim()
+  return (
+    (body.split("\n")[0] ?? "")
+      .replace(/`([^`]{0,1000})`/g, "$1")
+      .replace(/\*\*([^*]*)\*\*/g, "$1")
+      .replace(/\*([^*]*)\*/g, "$1")
+      // Bounded for the reason src/lib/markdown.ts is: an unbounded run to
+      // the closing bracket is quadratic in a body full of opening ones.
+      .replace(/\[([^\]]{0,400})\]\([^)]{0,2000}\)/g, "$1")
+      .replace(/^#+\s*/, "")
+      .trim()
+  )
 }
 
 /** State changes as RSS — the subscription a paid status product sells,
@@ -377,7 +381,12 @@ export async function authorized(request: Request, token: string | undefined): P
 export async function postNotice(request: Request, db: Db): Promise<Response> {
   const body = await jsonBody<{ severity?: unknown; body?: unknown }>(request)
   if (body === null) return json({ error: "the body was not a json object" }, 400)
-  const severity = typeof body.severity === "string" ? body.severity : "info"
+  // Absent is `info`; present and not a string is a mistake worth saying
+  // out loud. A client that sends ["outage"] during an outage published it
+  // as an info notice and was answered 201.
+  if (body.severity !== undefined && typeof body.severity !== "string")
+    return json({ error: "severity must be a string" }, 400)
+  const severity = body.severity ?? "info"
   const text = typeof body.body === "string" ? body.body.trim() : ""
   const langRaw = (body as { lang?: unknown }).lang
   const lang =
@@ -399,7 +408,8 @@ export async function postNotice(request: Request, db: Db): Promise<Response> {
 export async function postResolve(request: Request, db: Db): Promise<Response> {
   const body = await jsonBody<{ id?: unknown }>(request)
   if (body === null) return json({ error: "the body was not a json object" }, 400)
-  if (typeof body.id !== "number") return json({ error: "id must be a number" }, 400)
+  if (typeof body.id !== "number" || !Number.isSafeInteger(body.id))
+    return json({ error: "id must be a whole number" }, 400)
   const { resolveNotice } = await import("./store.ts")
   const done = await resolveNotice(db, body.id)
   return done ? json({ resolved: body.id }) : json({ error: "no open notice with that id" }, 404)
