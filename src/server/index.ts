@@ -8,6 +8,7 @@ import { extname, join, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { preflight } from "../lib/api.ts"
+import { migrate } from "../lib/migrate.ts"
 import { tick } from "../lib/tick.ts"
 import { clientAddress, trustedHops } from "./address.ts"
 import { db, DB_PATH, env } from "./env.ts"
@@ -129,9 +130,13 @@ async function main(): Promise<void> {
   // would otherwise leave its log world-readable with the URLs in it.
   await chmod(DB_PATH, 0o600).catch(() => {})
 
-  // Additive and idempotent, the same file the Workers deployment runs.
+  // Additive and idempotent, the same file the Workers deployment runs —
+  // and then the columns it cannot reach, since a table that exists is a
+  // table `CREATE TABLE IF NOT EXISTS` leaves exactly as it found it.
   try {
     await db.exec(await readFile(schemaFile, "utf8"))
+    const added = await migrate(db)
+    if (added.length > 0) console.log(`[nabiz] added ${added.join(", ")}`)
   } catch (error) {
     // The one line that names the file only prints on success, so a
     // read-only mount or a root-owned database says nothing about where.
