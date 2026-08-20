@@ -6,7 +6,9 @@ services:
     # Or build it here instead: build: .
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      # PORT in .env moves the published side; 8080 is a busy port on a
+      # developer's machine.
+      - "${PORT:-8080}:8080"
     volumes:
       - nabiz:/data
     environment:

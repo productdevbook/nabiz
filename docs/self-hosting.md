@@ -14,7 +14,7 @@ docker run -d --name nabiz -p 8080:8080 -v nabiz:/data \
 ```
 
 Images are published for `linux/amd64` and `linux/arm64` on every release,
-tagged `:latest`, `:3`, `:3.4` and `:3.4.0`. Pin at least the major for
+tagged `:latest`, the major (`:3`), the minor and the full version. Pin at least the major for
 anything you rely on; pin the full version if you would rather decide when
 to move. Note that the documentation on GitHub tracks `main`, so it can be
 ahead of the image you are running.
@@ -25,10 +25,15 @@ working page, and monitors are rows you add afterwards — see
 
 ## Compose
 
-[`compose.yaml`](../compose.yaml) is the same thing with a named volume:
+[`compose.yaml`](../compose.yaml) is the same thing with a named volume.
+Put the token in a `.env` file beside it rather than on the command line —
+compose reads the environment fresh on every `up`, so a token given once
+on a command line is gone the next time you upgrade, and every write is
+refused from then on with no other symptom:
 
 ```sh
-ADMIN_TOKEN="$(openssl rand -hex 32)" docker compose up -d
+echo "ADMIN_TOKEN=$(openssl rand -hex 32)" > .env
+docker compose up -d
 ```
 
 ## Kubernetes
@@ -92,7 +97,12 @@ docker exec nabiz bun -e "
   new Database('/data/nabiz.db').run(\"VACUUM INTO '/tmp/nabiz-backup.db'\")
 "
 docker cp nabiz:/tmp/nabiz-backup.db ./nabiz-backup.db
+chmod 600 nabiz-backup.db
 ```
+
+That last line is not decoration: the live database is `0600` because it
+holds the URLs of everything you watch, and a copy of it on your laptop
+holds them too.
 
 ## Restoring one
 

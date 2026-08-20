@@ -50,6 +50,7 @@ describe("a database that started on an older version", () => {
       "monitors.fail_threshold",
       "state.fails",
       "state.last_status",
+      "state.last_reason",
     ])
     const [api] = await monitors(db)
     expect(api?.name).toBe("API")

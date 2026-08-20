@@ -10,6 +10,7 @@ const ADDED: { table: string; column: string; type: string }[] = [
   { table: "state", column: "fails", type: "INTEGER NOT NULL DEFAULT 0" },
   { table: "notices", column: "lang", type: "TEXT" },
   { table: "state", column: "last_status", type: "INTEGER" },
+  { table: "state", column: "last_reason", type: "TEXT" },
 ]
 
 async function columns(db: Db, table: string): Promise<Set<string>> {

@@ -14,11 +14,18 @@ export interface Monitor {
   position: number
 }
 
+/** Why a probe failed, when the status code does not say it. Three, not
+ *  five: a refused connection, a name that does not resolve and a
+ *  handshake that fails are one word here because no runtime tells us
+ *  them apart in a way both of ours agree on. */
+export type Reason = "timeout" | "unreachable" | "body" | null
+
 export interface ProbeResult {
   monitor: Monitor
   ok: boolean
   status: number | null
   ms: number
+  reason: Reason
 }
 
 /** A probe's own timeout, and the round's if it has one: a monitor with a
@@ -34,6 +41,7 @@ function within(timeout: number, deadline?: AbortSignal): AbortSignal {
 // not a detour to take quietly.
 export async function probe(monitor: Monitor, deadline?: AbortSignal): Promise<ProbeResult> {
   const started = Date.now()
+  const signal = within(monitor.timeout_ms, deadline)
   try {
     const response = await fetch(monitor.url, {
       method: monitor.method,
@@ -41,19 +49,34 @@ export async function probe(monitor: Monitor, deadline?: AbortSignal): Promise<P
       // Without this a cacheable 200 can come from Cloudflare's cache and
       // mask a real outage — a probe must always reach the origin.
       cache: "no-store",
-      signal: within(monitor.timeout_ms, deadline),
+      signal,
       headers: { "user-agent": "nabiz (+https://github.com/productdevbook/nabiz)" },
     })
-    let ok = response.status === monitor.expect_status
+    const answered = response.status === monitor.expect_status
     // Only read the body when the words in it are part of the promise.
-    if (ok && monitor.expect_body) ok = (await response.text()).includes(monitor.expect_body)
+    const said =
+      answered && monitor.expect_body
+        ? (await response.text()).includes(monitor.expect_body)
+        : answered
     return {
       monitor,
-      ok,
+      ok: said,
       status: response.status,
       ms: Date.now() - started,
+      // A 200 without the promised words is a failure whose reason is not
+      // the status code — saying "HTTP 200" about a red row is the one
+      // answer that makes the page look broken instead of the target.
+      reason: said ? null : answered ? "body" : null,
     }
   } catch {
-    return { monitor, ok: false, status: null, ms: Date.now() - started }
+    // Our own signal stopped it, or the connection never happened. Both
+    // runtimes agree on that much and on nothing finer.
+    return {
+      monitor,
+      ok: false,
+      status: null,
+      ms: Date.now() - started,
+      reason: signal.aborted ? "timeout" : "unreachable",
+    }
   }
 }

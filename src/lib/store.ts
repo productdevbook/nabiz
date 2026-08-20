@@ -1,5 +1,5 @@
 import type { Db, Stmt } from "./db.ts"
-import type { Monitor, ProbeResult } from "./probe.ts"
+import type { Monitor, ProbeResult, Reason } from "./probe.ts"
 
 export interface DayRow {
   monitor_id: number
@@ -56,16 +56,17 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
 
   const changes: StateChange[] = []
   const stateWrites: Stmt[] = []
-  const put = (id: number, ok: boolean, since: number, fails: number, status: number | null) =>
+  const put = (id: number, ok: boolean, since: number, fails: number, r: ProbeResult) =>
     stateWrites.push(
       db
         .prepare(
-          `INSERT INTO state (monitor_id, ok, since, fails, last_status) VALUES (?, ?, ?, ?, ?)
+          `INSERT INTO state (monitor_id, ok, since, fails, last_status, last_reason)
+           VALUES (?, ?, ?, ?, ?, ?)
            ON CONFLICT (monitor_id)
            DO UPDATE SET ok = excluded.ok, since = excluded.since, fails = excluded.fails,
-                         last_status = excluded.last_status`,
+                         last_status = excluded.last_status, last_reason = excluded.last_reason`,
         )
-        .bind(id, ok ? 1 : 0, since, fails, status),
+        .bind(id, ok ? 1 : 0, since, fails, r.status, r.reason),
     )
   const event = (id: number, ok: boolean) =>
     stateWrites.push(
@@ -83,7 +84,7 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
     // added not answering, and saying nothing leaves them watching a red
     // row wondering whether the page works.
     if (was === undefined) {
-      put(r.monitor.id, r.ok, now, r.ok ? 0 : 1, r.status)
+      put(r.monitor.id, r.ok, now, r.ok ? 0 : 1, r)
       if (!r.ok) {
         changes.push({ monitor: r.monitor, ok: false, heldFor: null })
         event(r.monitor.id, false)
@@ -99,9 +100,9 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
           heldFor: Math.round((now - was.since) / 1000),
         })
         event(r.monitor.id, true)
-        put(r.monitor.id, true, now, 0, r.status)
+        put(r.monitor.id, true, now, 0, r)
       } else {
-        put(r.monitor.id, true, was.since, 0, r.status)
+        put(r.monitor.id, true, was.since, 0, r)
       }
       continue
     }
@@ -112,9 +113,9 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
     if (was.ok && fails >= r.monitor.fail_threshold) {
       changes.push({ monitor: r.monitor, ok: false, heldFor: Math.round((now - was.since) / 1000) })
       event(r.monitor.id, false)
-      put(r.monitor.id, false, now, fails, r.status)
+      put(r.monitor.id, false, now, fails, r)
     } else {
-      put(r.monitor.id, Boolean(was.ok), was.since, fails, r.status)
+      put(r.monitor.id, Boolean(was.ok), was.since, fails, r)
     }
   }
 
@@ -187,7 +188,7 @@ export async function recentEvents(db: Db, limit: number): Promise<EventRow[]> {
 
 export interface PageData {
   monitors: Monitor[]
-  states: Map<number, { ok: boolean; code: number | null }>
+  states: Map<number, { ok: boolean; code: number | null; reason: Reason }>
   days: Map<number, DayRow[]>
   latency: Map<number, number>
   /** Last day of successful-probe latency, averaged into hours — 24
@@ -248,7 +249,7 @@ async function read(db: Db, window: number): Promise<PageData> {
   const since = new Date(Date.now() - window * 24 * 3600 * 1000).toISOString().slice(0, 10)
 
   const [statesQ, daysQ, latencyQ, sparkQ, wroteQ] = await db.batch<never>([
-    db.prepare("SELECT monitor_id, ok, last_status FROM state"),
+    db.prepare("SELECT monitor_id, ok, last_status, last_reason FROM state"),
     db.prepare("SELECT * FROM days WHERE day >= ? ORDER BY day").bind(since),
     db
       .prepare(`SELECT monitor_id, ms FROM checks WHERE ok = 1 AND at > ? ORDER BY at`)
@@ -270,13 +271,14 @@ async function read(db: Db, window: number): Promise<PageData> {
   )
     throw new Error("the batch came back short, which D1 does not do")
 
-  const states = new Map<number, { ok: boolean; code: number | null }>()
+  const states = new Map<number, { ok: boolean; code: number | null; reason: Reason }>()
   for (const s of statesQ.results as unknown as {
     monitor_id: number
     ok: number
     last_status: number | null
+    last_reason: Reason
   }[])
-    states.set(s.monitor_id, { ok: Boolean(s.ok), code: s.last_status })
+    states.set(s.monitor_id, { ok: Boolean(s.ok), code: s.last_status, reason: s.last_reason })
 
   const days = new Map<number, DayRow[]>()
   for (const d of daysQ.results as unknown as DayRow[]) {

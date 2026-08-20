@@ -119,13 +119,19 @@ export function serviceRow(r: Row, lang: Lang): string {
   const pct = uptimeLabel(r.days, lang)
   const figure =
     pct === null ? `<span class="pct none">—</span>` : `<span class="pct">${pct}</span>`
-  // A failure that is a redirect, a 500 or a refused connection are three
-  // different problems and one red pill; the answer goes where the word
-  // is. A group has no answer of its own to give.
-  const why =
-    r.ok === false && r.code !== undefined
-      ? ` title="${r.code === null ? esc(t(lang, "no_answer")) : `HTTP ${r.code}`}"`
-      : ""
+  // A failure that is a redirect, a timeout, a refused connection or a
+  // promised page with the wrong words in it are four different problems
+  // and one red pill; the answer goes where the word is, and to a reader
+  // who cannot hover. A group has no answer of its own to give.
+  const said =
+    r.ok !== false || r.code === undefined
+      ? null
+      : r.reason === "timeout" || r.reason === "unreachable" || r.reason === "body"
+        ? t(lang, `why_${r.reason}`)
+        : r.code === null
+          ? t(lang, "no_answer")
+          : `HTTP ${r.code}`
+  const why = said === null ? "" : ` title="${esc(said)}" aria-label="${esc(`${word} — ${said}`)}"`
   return `<section class="svc">
   <header>
     <div class="who"><h3>${esc(r.name)}</h3><span class="state ${dot}"${why}>${word}</span>${tele}</div>

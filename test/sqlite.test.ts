@@ -25,7 +25,13 @@ async function fresh() {
 const seed = (slug: string, threshold = 2) =>
   `INSERT INTO monitors (slug, name, url, fail_threshold) VALUES ('${slug}', '${slug}', 'https://${slug}.example.com/', ${threshold})`
 
-const result = (m: Monitor, ok: boolean) => ({ monitor: m, ok, status: ok ? 200 : null, ms: 12 })
+const result = (m: Monitor, ok: boolean) => ({
+  monitor: m,
+  ok,
+  status: ok ? 200 : null,
+  ms: 12,
+  reason: ok ? null : ("unreachable" as const),
+})
 
 describe("the same store, on a file instead of D1", () => {
   test("a round of results lands in checks, days and state", async () => {

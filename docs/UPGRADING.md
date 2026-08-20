@@ -1,6 +1,19 @@
 # Upgrading
 
-**A self-hosted deployment upgrades by pulling the new image.** It applies
+**A self-hosted deployment upgrades by pulling the new image:**
+
+```sh
+docker compose pull && docker compose up -d          # with compose
+docker pull ghcr.io/productdevbook/nabiz:latest      # with docker run
+docker rm -f nabiz && docker run -d --name nabiz … ghcr.io/productdevbook/nabiz:latest
+```
+
+The `docker run` form needs every flag you first used typed again — the
+volume, the port and the environment. The volume is what carries the
+history; the environment is not stored anywhere, and a token you forget to
+pass is a deployment that refuses every write.
+
+It applies
 `schema.sql` on start, which adds any missing table or index, and then adds
 any missing column itself — printing what it added:
 

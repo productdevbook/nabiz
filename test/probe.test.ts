@@ -115,3 +115,51 @@ describe("a probe believes the promise, not the connection", () => {
     }
   })
 })
+
+describe("a failure says which kind of failure it was", () => {
+  test("a promised status with the wrong words in it is not the status code's fault", async () => {
+    const watch = answering(() => Promise.resolve(new Response("database error", { status: 200 })))
+    try {
+      const r = await probe(monitor({ expect_body: "all systems" }))
+      expect(r.ok).toBe(false)
+      // 200 is what it answered; the reason it is red is the body.
+      expect(r.status).toBe(200)
+      expect(r.reason).toBe("body")
+    } finally {
+      watch.done()
+    }
+  })
+
+  test("a connection that never happened is not a timeout", async () => {
+    const watch = answering(() => Promise.reject(new Error("ECONNREFUSED")))
+    try {
+      expect((await probe(monitor())).reason).toBe("unreachable")
+    } finally {
+      watch.done()
+    }
+  })
+
+  test("a probe stopped by its own deadline says so", async () => {
+    const watch = answering(
+      () => new Promise((_, reject) => setTimeout(() => reject(new Error("aborted")), 60)),
+    )
+    try {
+      const r = await probe(monitor({ timeout_ms: 20 }))
+      expect(r.ok).toBe(false)
+      expect(r.reason).toBe("timeout")
+    } finally {
+      watch.done()
+    }
+  })
+
+  test("a wrong status code needs no reason beyond itself", async () => {
+    const watch = answering(() => Promise.resolve(new Response("", { status: 503 })))
+    try {
+      const r = await probe(monitor())
+      expect(r.status).toBe(503)
+      expect(r.reason).toBeNull()
+    } finally {
+      watch.done()
+    }
+  })
+})

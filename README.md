@@ -86,8 +86,9 @@ bun run deploy
 Either way the page comes up empty and working — a heading with nothing
 under it is the correct first sight. Monitors are rows you add next, and
 the first bar appears within one probe interval: see
-[Monitors](docs/monitors.md). Keep the token you generated above; it is
-what lets you write notices, and nothing prints it again.
+[Monitors](docs/monitors.md). Keep the token you generated above; it is what lets you write notices.
+Nothing on the page prints it again — `docker inspect nabiz` will, which
+is also a reason not to leave it on a machine other people can reach.
 
 ## Development
 

@@ -66,10 +66,10 @@ A row with `grouped = 1` and no `group_name` is not a mistake the page
 will publish its way out of: it joins a group shown as `—`. Give the group
 a name and the row moves to it.
 
-The group's ninety days and its uptime figure are the median member's, so
-one site's bad afternoon is not billed to everyone else's history — which
-also means that in a group of two the published day is the worse member's
-own row, counts and latency included. Three or more is where a group
+The group's ninety days and its uptime figure are the median member's —
+the lower of the two middle members when there is an even number of them,
+because a status page should not round its own history up. In a group of
+two that means the worse member's own row, counts and latency included. Three or more is where a group
 starts hiding a member rather than relaying one; a day
 fewer than half the members have data for is not published at all. The
 events list follows the same rule: a line appears when the group itself

@@ -24,7 +24,13 @@ function monitor(over: Partial<Monitor> = {}): Monitor {
 }
 
 function result(ok: boolean, m = monitor()): ProbeResult {
-  return { monitor: m, ok, status: ok ? 200 : null, ms: 5 }
+  return {
+    monitor: m,
+    ok,
+    status: ok ? 200 : null,
+    ms: 5,
+    reason: ok ? null : ("unreachable" as const),
+  }
 }
 
 function withState(rows: { monitor_id: number; ok: number; since: number; fails: number }[]) {
@@ -44,7 +50,7 @@ describe("the monitor is not called down on one bad minute", () => {
     expect(changes).toEqual([])
     expect(eventWrites(writes)).toEqual([])
     // …but the strike is counted, and the monitor still reads as up.
-    expect(stateWrite(writes)?.args).toEqual([1, 1, 0, 1, null])
+    expect(stateWrite(writes)?.args).toEqual([1, 1, 0, 1, null, "unreachable"])
   })
 
   test("the threshold-th failure in a row is the outage", async () => {
@@ -97,7 +103,7 @@ describe("the monitor is not called down on one bad minute", () => {
     expect(changes).toEqual([])
     expect(eventWrites(writes)).toEqual([])
     const w = stateWrite(writes)
-    expect(w?.args).toEqual([1, 0, 3, 3, null])
+    expect(w?.args).toEqual([1, 0, 3, 3, null, "unreachable"])
   })
 })
 

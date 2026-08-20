@@ -56,7 +56,12 @@ export function statusJson(data: PageData, events: EventRow[]): Response {
       // Absent rather than null when there is nothing to say — a group
       // publishes no member's answer, and saying "nothing answered" about
       // hosts that answered is a different claim from saying nothing.
-      if (r.ok === false && r.code !== undefined) m.last_status = r.code
+      if (r.ok === false && r.code !== undefined) {
+        m.last_status = r.code
+        // Why, when the code does not say it: "timeout", "unreachable" or
+        // "body" for a promised status with the wrong words in it.
+        if (r.reason !== null && r.reason !== undefined) m.reason = r.reason
+      }
       return m
     }),
     recent_events: eventsView(data.monitors, events, data.states, 20).map((e) => ({
@@ -160,7 +165,7 @@ export function feed(
     const what = e.ok ? t(lang, "recovered") : t(lang, "down")
     entries.push({
       at: e.at,
-      xml: `<item><title>${escXml(e.label)} — ${what}</title><pubDate>${new Date(e.at).toUTCString()}</pubDate><guid isPermaLink="false">${e.at}-${escXml(e.label)}</guid><link>${here}/</link></item>`,
+      xml: `<item><title>${escXml(e.label)} — ${what}</title><description>${escXml(`${e.label} — ${what}`)}</description><pubDate>${new Date(e.at).toUTCString()}</pubDate><guid isPermaLink="false">${e.at}-${escXml(e.label)}</guid><link>${here}/</link></item>`,
     })
   }
   // What the operator wrote belongs in the same stream as what the probes
@@ -210,7 +215,7 @@ but named elsewhere; neither their names nor their number is published.
 ## Endpoints
 
 - [The page](${origin}/): HTML, and the JSON below to an Accept header that asks for it
-- [status.json](${origin}/api/status.json): current state, per-monitor uptime and latency, recent events
+- [status.json](${origin}/api/status.json): current state, per-monitor uptime and latency, why anything is down, recent events
 - [history.json](${origin}/api/history.json): ninety days of daily totals per monitor
 - [notices.json](${origin}/api/notices.json): operator-written notices, markdown and rendered
 - [badge.svg](${origin}/badge.svg): the overall state as a badge
@@ -240,10 +245,16 @@ endpoints carry no words to translate.
 of the hosted sites are unreachable and everything else is serving,
 "degraded" when a service is down, and "down" when nothing answers.
 
-Each monitor carries "status" — "up", "degraded", "down", or "unknown"
-before its first probe has written anything — "uptime_90d" (percent, null
-before the first day of data), and "latency_ms" from the most recent
-successful probe. A grouped monitor speaks for several hosts and says only
+Each monitor carries "status" — "up", "down", or "unknown" before its
+first probe has written anything, and "degraded" only for a group —
+"uptime_90d" (percent, null before the first day of data), and
+"latency_ms" from the most recent successful probe.
+
+A monitor that is down also carries "last_status", the code its last probe
+was answered with, and "reason" when the code does not say it: "timeout",
+"unreachable" for a connection that never happened, or "body" for a
+promised status with the wrong words in it. A group carries neither: it
+speaks for several hosts and publishes none of their answers. A grouped monitor speaks for several hosts and says only
 how it is: "degraded" while some of them are unreachable, "down" once half
 or more are. How many there are is not published — that number is a
 customer count. Its uptime and its days are the median member's rather

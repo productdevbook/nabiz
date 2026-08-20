@@ -1,4 +1,4 @@
-import type { Monitor } from "./probe.ts"
+import type { Monitor, Reason } from "./probe.ts"
 import type { DayRow, EventRow, PageData } from "./store.ts"
 
 /** One line on the page or in the API: a monitor, or a group speaking for
@@ -13,6 +13,8 @@ export interface Row {
    *  Absent on a group, which speaks for several hosts and publishes none
    *  of their answers — that is a different thing from nothing answering. */
   code?: number | null
+  /** Why, when the code does not say it. Absent on a group. */
+  reason?: Reason
   /** A group with some members up and some down. One customer's site being
    *  unreachable is not every customer's site being unreachable, and a row
    *  that says otherwise makes the page lie about the machine. */
@@ -115,6 +117,7 @@ function shape(data: PageData): Row[] {
         name: m.name,
         ok: s ? s.ok : null,
         code: s ? s.code : null,
+        reason: s ? s.reason : null,
         partial: false,
         days: data.days.get(m.id) ?? [],
         latency: data.latency.get(m.id) ?? null,

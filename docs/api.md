@@ -1,6 +1,7 @@
 # API
 
-Read-only and CORS-open. What you get is held for at most fifteen seconds
+Six endpoints to read and two to write. The reading is CORS-open; what you
+get is held for at most fifteen seconds
 or until the next probe round writes, whichever comes first — so it is
 never older than the round behind it. Three of them answer in a language — `/`, `/feed.xml`
 and `/api/notices.json` take `?lang=` (`en`, `tr`, `de`, `es`, `fr`); the
@@ -9,7 +10,7 @@ rest carry no words to translate.
 | Endpoint | Returns |
 |---|---|
 | `/api/status.json` | overall state, per-monitor status, uptime, latency, recent events |
-| `/api/history.json` | 90 days of daily totals per monitor |
+| `/api/history.json` | 90 days of daily totals per monitor: `{window_days, monitors: [{name, days: [{day, checks, ok, avg_ms}]}]}` |
 | `/api/notices.json` | notices, markdown and rendered HTML |
 | `/badge.svg` | the overall state as an SVG badge, always in English |
 | `/feed.xml` | state changes and notices as RSS |
@@ -28,6 +29,9 @@ rest carry no words to translate.
 
 ## Reading status.json
 
+The page itself shows every open notice and the three most recent
+resolved ones; `notices.json` returns the ten most recent resolved.
+
 `updated_at` is when a probe last wrote anything, not when the response
 was rendered — so a page whose probe loop has stopped, or whose disk is
 full, goes stale in that field while everything else still answers. It is
@@ -43,10 +47,22 @@ probe. A monitor that has never answered therefore has an `avg_ms` and no
 of the hosted sites are unreachable and everything else is serving;
 `degraded` when a service is down; `down` when nothing answers.
 
-Each monitor carries `status` — `up`, `degraded`, `down`, or `unknown`
-before its first probe has written anything — `uptime_90d` (percent,
-`null` before the first day of data) and `latency_ms` from the most recent
-successful probe.
+Each monitor carries `status` — `up`, `down`, or `unknown` before its
+first probe has written anything. `degraded` is a group's word only: a
+single monitor is never degraded.
+
+A monitor that is down also carries `last_status`, the code its last probe
+was answered with, and `reason` when the code does not say it:
+
+| `reason` | what happened |
+|---|---|
+| absent | the code in `last_status` is the reason |
+| `timeout` | nothing answered before `timeout_ms` |
+| `unreachable` | the connection never happened — refused, no such name, or a handshake that failed |
+| `body` | the promised status arrived without the words `expect_body` asks for |
+
+`uptime_90d` is a percent, `null` before the first day of data, and
+`latency_ms` comes from the most recent successful probe.
 
 A group says only how it is; how many hosts it speaks for is not
 published. Its `uptime_90d` and its days in `history.json` are the median
@@ -76,8 +92,11 @@ curl -X POST https://status.example.com/api/notice/resolve \
 - `lang`: one of the five languages, or `all` — a notice written for one
   language is served only to it on the page and in the feed.
   `/api/notices.json` scopes the same way when asked with `?lang=`, and
-  returns every notice when it is not.
-- `body`: markdown, 1 to 4000 characters.
+  returns every notice when it is not. `"all"` is stored and returned as
+  `null`, and omitting `lang` means the same thing.
+- `body`: markdown, 1 to 4000 characters. The subset is `**bold**`,
+  `` `code` ``, `[text](url)`, `- ` lists and blank lines for paragraphs;
+  underscores and `>` quotes are not markup here and render as themselves.
 
 Guesses at the token are limited to ten a minute per address, and a
 refusal carries `retry-after: 60`. A request that turns out to be

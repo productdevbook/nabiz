@@ -64,8 +64,12 @@ CREATE TABLE IF NOT EXISTS state (
   fails INTEGER NOT NULL DEFAULT 0,
   -- What the last probe answered, so a page can say which kind of failure
   -- this is: a redirect where a 200 was promised reads nothing like a
-  -- connection that was refused, and NULL is the second of those.
-  last_status INTEGER
+  -- connection that was refused.
+  last_status INTEGER,
+  -- And why, when the code does not say it: 'timeout', 'unreachable' for a
+  -- connection that never happened, 'body' for a promised status with the
+  -- wrong words in it.
+  last_reason TEXT
 );
 
 -- Every change of state, kept so the page can say not only how things are
