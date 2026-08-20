@@ -152,14 +152,22 @@ export async function prune(db: Db, watched: Monitor[] = []): Promise<void> {
   // this code never writes. Left alone, that service's whole history sits
   // in the wrong window and crowds out the one it left. Both directions,
   // by the same rule the page labels rows with.
-  const ids = (grouped: boolean) =>
-    watched.filter((m) => Boolean(m.grouped) === grouped).map((m) => m.id)
-  const reconcile = (grouped: boolean) => {
-    const list = ids(grouped)
-    return db.prepare(
-      `UPDATE events SET grouped = ${grouped ? 1 : 0}
-       WHERE grouped = ${grouped ? 0 : 1} AND monitor_id IN (${list.join(",") || "NULL"})`,
-    )
+  // In batches, because the list goes into the statement rather than into
+  // a parameter: one of fifteen thousand ids is a statement D1 answers
+  // SQLITE_NOMEM to, and `batch` is a transaction — the sweep's deletes
+  // would be discarded with it and the database would grow forever.
+  const CHUNK = 500
+  const reconcile = (grouped: boolean): Stmt[] => {
+    const ids = watched.filter((m) => Boolean(m.grouped) === grouped).map((m) => m.id)
+    const out: Stmt[] = []
+    for (let i = 0; i < ids.length; i += CHUNK)
+      out.push(
+        db.prepare(
+          `UPDATE events SET grouped = ${grouped ? 1 : 0}
+           WHERE grouped = ${grouped ? 0 : 1} AND monitor_id IN (${ids.slice(i, i + CHUNK).join(",")})`,
+        ),
+      )
+    return out
   }
   await db.batch([
     db.prepare("DELETE FROM checks WHERE at < ?").bind(before(2)),
@@ -171,8 +179,8 @@ export async function prune(db: Db, watched: Monitor[] = []): Promise<void> {
     orphans("days"),
     orphans("events"),
     orphans("state"),
-    reconcile(true),
-    reconcile(false),
+    ...reconcile(true),
+    ...reconcile(false),
   ])
   forget(db)
 }
