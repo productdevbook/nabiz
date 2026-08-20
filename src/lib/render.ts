@@ -24,7 +24,9 @@ export function percent(pct: number, lang: Lang): string {
   const plain = pct === 100 ? "100" : (Math.floor(pct * 100) / 100).toFixed(2)
   const n = lang === "en" ? plain : plain.replace(".", ",")
   if (lang === "tr") return `%${n}`
-  return lang === "en" ? `${n}%` : `${n} %`
+  // A non-breaking space: the four languages that put one before the sign
+  // were dropping the sign onto its own line on a phone.
+  return lang === "en" ? `${n}%` : `${n}\u00a0%`
 }
 
 export function when(at: number): string {

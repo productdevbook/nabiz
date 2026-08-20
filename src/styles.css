@@ -35,6 +35,9 @@
     --panel: #ffffff;
     --fg: #171d1a;
     --mut: #64716a;
+    --shade: rgb(10 12 16 / 0.16);
+    --scrim: rgb(12 14 18 / 0.4);
+    --chev: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%2364716a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>');
     --line: #e4eae6;
     --none: #e0e6e2;
     --well: #f8faf9;
@@ -52,6 +55,9 @@
       --panel: #1b201e;
       --fg: #e9edeb;
       --mut: #8da095;
+      --shade: rgb(0 0 0 / 0.5);
+      --scrim: rgb(0 0 0 / 0.55);
+      --chev: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%238da095" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>');
       --line: #2b322e;
       --none: #313834;
       --well: #121614;
@@ -70,6 +76,9 @@
     --panel: #1b201e;
     --fg: #e9edeb;
     --mut: #8da095;
+    --shade: rgb(0 0 0 / 0.5);
+    --scrim: rgb(0 0 0 / 0.55);
+    --chev: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%238da095" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>');
     --line: #2b322e;
     --none: #313834;
     --well: #121614;
@@ -125,10 +134,13 @@
     font-family: inherit;
     transition: border-color 0.13s;
   }
-  /* The native arrow floats to the far edge; draw our own next to the text. */
+  /* The native arrow floats to the far edge; draw our own next to the text.
+   * A select renders no pseudo-element, so the arrow is a background image
+   * and its colour cannot be a variable inside the image — the whole image
+   * is the token, declared in the same three places every colour is. */
   #lang {
     @apply cursor-pointer appearance-none pr-8;
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%238a938e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>');
+    background-image: var(--chev);
     background-repeat: no-repeat;
     background-position: right 11px center;
     background-size: 14px;
@@ -292,7 +304,7 @@
   .callout time,
   .past time,
   .events time {
-    @apply text-mut text-[12px] tabular-nums;
+    @apply text-mut text-[12px] whitespace-nowrap tabular-nums;
   }
   .chip {
     @apply inline-flex h-[22px] items-center gap-1.5 rounded-full border px-2.5 text-[11.5px] leading-none font-semibold;
@@ -326,7 +338,7 @@
     @apply my-1;
   }
   .md code {
-    @apply rounded-md px-1.5 py-[1px] text-[12.5px];
+    @apply rounded-lg px-1.5 py-[1px] text-[12.5px];
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     background: var(--bg);
     border: 1px solid var(--line);
@@ -336,7 +348,10 @@
   }
   .md a {
     color: var(--acc);
-    @apply no-underline hover:underline;
+    /* Underlined from the start: against the text around it the colour is
+     * 3.66:1 in light and 2.46:1 in dark, so colour alone is not the
+     * difference between a link and a sentence. */
+    @apply underline underline-offset-2;
   }
 
   /* ---- sections ---- */
@@ -353,6 +368,17 @@
   }
   .who {
     @apply flex min-w-0 items-center gap-2.5;
+  }
+  /* On a narrow screen the pill and the latency take the width and the
+   * name truncates to a letter and a half — on a page whose whole job is
+   * to say which service it is. It takes its own line instead. */
+  @media (max-width: 480px) {
+    .svc header {
+      @apply flex-wrap;
+    }
+    .who {
+      @apply w-full;
+    }
   }
   .svc h3 {
     @apply truncate text-[14.5px] font-semibold tracking-[-0.1px];
@@ -408,6 +434,14 @@
    * the cursor so the day and its number feel touchable. */
   .bars {
     @apply mt-3.5 mb-2 flex h-[26px] items-stretch gap-[3px];
+  }
+  /* Ninety gaps of three pixels is 267 of them, which is wider than a
+   * phone: every bar computed to zero width and the history rendered as a
+   * blank band. The gap gives way before the data does. */
+  @media (max-width: 600px) {
+    .bars {
+      @apply gap-px;
+    }
   }
   .bars i {
     @apply min-w-0 flex-1 rounded-[2px];
@@ -520,15 +554,21 @@
   #pen svg {
     @apply size-3.5;
   }
+  @media (pointer: coarse) {
+    #pen,
+    .panel-h a {
+      @apply size-9;
+    }
+  }
 
   /* ---- the editor ---- */
   dialog {
     @apply border-line text-fg m-auto w-[min(480px,94vw)] rounded-[20px] border p-6;
     background: var(--panel);
-    box-shadow: 0 16px 48px rgba(10, 12, 16, 0.16);
+    box-shadow: 0 16px 48px var(--shade);
   }
   dialog::backdrop {
-    background: rgba(12, 14, 18, 0.4);
+    background: var(--scrim);
   }
   dialog[open] {
     animation: rise 0.18s ease-out;
@@ -587,7 +627,10 @@
   dialog textarea:focus,
   .pair select:focus,
   .pair input:focus {
-    outline: none;
+    /* A one-pixel border is a colour change, not a focus ring: keyboard
+     * focus is two pixels of it, offset, like every other control here. */
+    outline: 2px solid var(--acc);
+    outline-offset: 2px;
     border-color: var(--fg);
   }
   dialog footer {
@@ -603,7 +646,7 @@
     border-color: var(--mut);
   }
   dialog footer button.primary {
-    @apply border-0 text-white;
+    @apply border-0;
     background: var(--fg);
     color: var(--bg);
   }

@@ -13,10 +13,13 @@ describe("a percentage the page can stand behind", () => {
   test("each language writes the number the way it writes numbers", () => {
     expect(percent(100, "en")).toBe("100%")
     expect(percent(100, "tr")).toBe("%100")
-    // A comma where English puts a point, and the sign where it belongs.
+    // A comma where English puts a point, and the sign where it belongs —
+    // held to the number by a non-breaking space, or a phone puts the sign
+    // on the line below.
     expect(percent(99.5, "tr")).toBe("%99,50")
-    expect(percent(99.5, "de")).toBe("99,50 %")
-    expect(percent(99.5, "fr")).toBe("99,50 %")
-    expect(percent(99.5, "es")).toBe("99,50 %")
+    expect(percent(99.5, "de")).toBe("99,50\u00a0%")
+    expect(percent(99.5, "de").includes(" ")).toBe(false)
+    expect(percent(99.5, "fr")).toBe("99,50\u00a0%")
+    expect(percent(99.5, "es")).toBe("99,50\u00a0%")
   })
 })
