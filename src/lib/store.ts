@@ -50,23 +50,40 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
   await db.batch(writes)
 
   const { results: states } = await db
-    .prepare("SELECT monitor_id, ok, since, fails FROM state")
-    .all<{ monitor_id: number; ok: number; since: number; fails: number }>()
+    .prepare("SELECT monitor_id, ok, since, fails, fail_at FROM state")
+    .all<{
+      monitor_id: number
+      ok: number
+      since: number
+      fails: number
+      fail_at: number | null
+    }>()
   const known = new Map(states.map((s) => [s.monitor_id, s]))
 
   const changes: StateChange[] = []
   const stateWrites: Stmt[] = []
-  const put = (id: number, ok: boolean, since: number, fails: number, r: ProbeResult) =>
+  // `fail_at` is when the current run of failures began, which is not when
+  // the monitor was called down: at the default threshold those are a
+  // round apart, and the recovery message was that much short of the truth.
+  const put = (
+    id: number,
+    ok: boolean,
+    since: number,
+    fails: number,
+    r: ProbeResult,
+    failAt: number | null,
+  ) =>
     stateWrites.push(
       db
         .prepare(
-          `INSERT INTO state (monitor_id, ok, since, fails, last_status, last_reason)
-           VALUES (?, ?, ?, ?, ?, ?)
+          `INSERT INTO state (monitor_id, ok, since, fails, last_status, last_reason, fail_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT (monitor_id)
            DO UPDATE SET ok = excluded.ok, since = excluded.since, fails = excluded.fails,
-                         last_status = excluded.last_status, last_reason = excluded.last_reason`,
+                         last_status = excluded.last_status, last_reason = excluded.last_reason,
+                         fail_at = excluded.fail_at`,
         )
-        .bind(id, ok ? 1 : 0, since, fails, r.status, r.reason),
+        .bind(id, ok ? 1 : 0, since, fails, r.status, r.reason, failAt),
     )
   // The kind is written on the row, not looked up when it is read: a
   // window that has to join to find out cannot stop at its limit, and
@@ -87,7 +104,7 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
     // added not answering, and saying nothing leaves them watching a red
     // row wondering whether the page works.
     if (was === undefined) {
-      put(r.monitor.id, r.ok, now, r.ok ? 0 : 1, r)
+      put(r.monitor.id, r.ok, now, r.ok ? 0 : 1, r, r.ok ? null : now)
       if (!r.ok) {
         changes.push({ monitor: r.monitor, ok: false, heldFor: null })
         event(r.monitor, false)
@@ -97,15 +114,17 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
 
     if (r.ok) {
       if (!was.ok) {
+        // From the first probe that failed, not from the one that crossed
+        // the threshold: the failures before it were part of the outage.
         changes.push({
           monitor: r.monitor,
           ok: true,
-          heldFor: Math.round((now - was.since) / 1000),
+          heldFor: Math.round((now - (was.fail_at ?? was.since)) / 1000),
         })
         event(r.monitor, true)
-        put(r.monitor.id, true, now, 0, r)
+        put(r.monitor.id, true, now, 0, r, null)
       } else {
-        put(r.monitor.id, true, was.since, 0, r)
+        put(r.monitor.id, true, was.since, 0, r, null)
       }
       continue
     }
@@ -113,12 +132,18 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
     // One blip in a minute-long window is weather; the monitor is not
     // called down until fail_threshold probes in a row have said so.
     const fails = was.fails + 1
+    const failAt = was.fail_at ?? now
     if (was.ok && fails >= r.monitor.fail_threshold) {
-      changes.push({ monitor: r.monitor, ok: false, heldFor: Math.round((now - was.since) / 1000) })
+      // It stopped being up when it first failed, not when we admitted it.
+      changes.push({
+        monitor: r.monitor,
+        ok: false,
+        heldFor: Math.round((failAt - was.since) / 1000),
+      })
       event(r.monitor, false)
-      put(r.monitor.id, false, now, fails, r)
+      put(r.monitor.id, false, failAt, fails, r, failAt)
     } else {
-      put(r.monitor.id, Boolean(was.ok), was.since, fails, r)
+      put(r.monitor.id, Boolean(was.ok), was.since, fails, r, failAt)
     }
   }
 
@@ -228,7 +253,7 @@ export interface PageData {
   latency: Map<number, number>
   /** Last day of successful-probe latency, averaged into hours — 24
    *  points draw a legible shape where 96 drew noise. */
-  spark: Map<number, number[]>
+  spark: Map<number, (number | null)[]>
   /** When a probe last wrote anything. The page says it was updated then,
    *  which is a different claim from "this page rendered just now" — and
    *  the difference is exactly what a full disk or a stopped loop looks
@@ -293,23 +318,39 @@ export async function forPage(db: Db, window: number): Promise<PageData> {
   return data
 }
 
+/** The UTC day a moment falls in, which is what the rollup is keyed by. */
+function asDay(at: number): string {
+  return new Date(at).toISOString().slice(0, 10)
+}
+
 async function read(db: Db, window: number): Promise<PageData> {
   const all = await monitors(db)
-  const since = new Date(Date.now() - window * 24 * 3600 * 1000).toISOString().slice(0, 10)
+  const now = Date.now()
+  // Today counts as one of them: ninety days back is the eighty-ninth day
+  // before today, and asking for one more summed a day the strip never
+  // draws — the figure moved with nothing on the page changing.
+  const since = asDay(now - (window - 1) * 24 * 3600 * 1000)
+  // Every window is closed at both ends. A container that boots with a
+  // clock a day fast writes rows no lower bound can expel, and the sweep
+  // only deletes what is old: a day dated tomorrow was summed into today's
+  // uptime, a check timestamped tomorrow became the latency chip, and
+  // `updated_at` — the field a machine watches to see whether the page is
+  // frozen — read the future.
+  const today = asDay(now)
 
   const [statesQ, daysQ, latencyQ, sparkQ, wroteQ] = await db.batch<never>([
     db.prepare("SELECT monitor_id, ok, last_status, last_reason FROM state"),
-    db.prepare("SELECT * FROM days WHERE day >= ? ORDER BY day").bind(since),
+    db.prepare("SELECT * FROM days WHERE day >= ? AND day <= ? ORDER BY day").bind(since, today),
     db
-      .prepare(`SELECT monitor_id, ms FROM checks WHERE ok = 1 AND at > ? ORDER BY at`)
-      .bind(Date.now() - 3600 * 1000),
+      .prepare(`SELECT monitor_id, ms FROM checks WHERE ok = 1 AND at > ? AND at <= ? ORDER BY at`)
+      .bind(now - 3600 * 1000, now),
     db
       .prepare(
         `SELECT monitor_id, at / 3600000 AS bucket, CAST(AVG(ms) AS INTEGER) AS ms
-         FROM checks WHERE ok = 1 AND at > ? GROUP BY monitor_id, bucket ORDER BY bucket`,
+         FROM checks WHERE ok = 1 AND at > ? AND at <= ? GROUP BY monitor_id, bucket ORDER BY bucket`,
       )
-      .bind(Date.now() - 24 * 3600 * 1000),
-    db.prepare("SELECT MAX(at) AS at FROM checks"),
+      .bind(now - 24 * 3600 * 1000, now),
+    db.prepare("SELECT MAX(at) AS at FROM checks WHERE at <= ?").bind(now),
   ])
   if (
     statesQ === undefined ||
@@ -341,10 +382,23 @@ async function read(db: Db, window: number): Promise<PageData> {
   for (const c of latencyQ.results as unknown as { monitor_id: number; ms: number }[])
     latency.set(c.monitor_id, c.ms)
 
-  const spark = new Map<number, number[]>()
-  for (const p of sparkQ.results as unknown as { monitor_id: number; ms: number }[]) {
-    const list = spark.get(p.monitor_id) ?? []
-    list.push(p.ms)
+  // One slot per hour of the last twenty-four, in place: an hour with no
+  // successful probe is a hole in the waveform, not a step to the next
+  // hour that has one. Closed up, an afternoon the probe loop was dead
+  // drew as a continuous day.
+  const HOURS = 24
+  const nowBucket = Math.floor(now / 3600000)
+  const spark = new Map<number, (number | null)[]>()
+  for (const p of sparkQ.results as unknown as {
+    monitor_id: number
+    bucket: number
+    ms: number
+  }[]) {
+    const slot = HOURS - 1 - (nowBucket - p.bucket)
+    if (slot < 0 || slot >= HOURS) continue
+    const list =
+      spark.get(p.monitor_id) ?? (Array.from({ length: HOURS }, () => null) as (number | null)[])
+    list[slot] = p.ms
     spark.set(p.monitor_id, list)
   }
 

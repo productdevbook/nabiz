@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { readFileSync } from "node:fs"
 
 import type { Monitor } from "../src/lib/probe.ts"
+import { WINDOW } from "../src/lib/render.ts"
 import { openSqlite } from "../src/lib/sqlite.ts"
 import {
   addNotice,
@@ -262,6 +263,48 @@ describe("the page's data is held for a moment, and dropped by a write", () => {
     await forPage(db, 90)
     await record(db, [result(api as Monitor, true)])
     expect((await forPage(db, 90)).states.get(1)?.ok).toBe(true)
+    await db.close()
+  })
+})
+
+describe("what a window includes", () => {
+  test("the days summed are the days drawn, and there are ninety of them", async () => {
+    const db = await fresh()
+    await db.exec(seed("api"))
+    const now = Date.now()
+    const day = (back: number) => new Date(now - back * 86400000).toISOString().slice(0, 10)
+    // A hundred days of history, all perfect except the day exactly ninety
+    // back — which the strip does not draw, so the figure must not see it.
+    const rows: string[] = []
+    for (let i = 0; i < 100; i += 1) rows.push(`(1, '${day(i)}', 100, ${i === 90 ? 0 : 100}, 2000)`)
+    await db.exec(`INSERT INTO days (monitor_id, day, total, ok, ms_sum) VALUES ${rows.join(",")}`)
+
+    const data = await forPage(db, WINDOW)
+    const days = data.days.get(1) ?? []
+    expect(days.length).toBe(WINDOW)
+    expect(days.filter((d) => d.ok < d.total)).toEqual([])
+    await db.close()
+  })
+
+  test("a clock that ran ahead cannot be summed, charted or called fresh", async () => {
+    const db = await fresh()
+    await db.exec(seed("api"))
+    const now = Date.now()
+    const ahead = now + 3 * 86400000
+    await db.exec(
+      `INSERT INTO days (monitor_id, day, total, ok, ms_sum) VALUES
+       (1, '${new Date(now).toISOString().slice(0, 10)}', 100, 100, 2000),
+       (1, '${new Date(ahead).toISOString().slice(0, 10)}', 5, 0, 100)`,
+    )
+    await db.exec(
+      `INSERT INTO checks (monitor_id, at, ok, status, ms) VALUES
+       (1, ${now - 300000}, 1, 200, 90), (1, ${ahead}, 1, 200, 4000)`,
+    )
+
+    const data = await forPage(db, WINDOW)
+    expect((data.days.get(1) ?? []).some((d) => d.ok < d.total)).toBe(false)
+    expect(data.latency.get(1)).toBe(90)
+    expect(data.wrote).toBe(now - 300000)
     await db.close()
   })
 })
