@@ -1,19 +1,11 @@
 import type { APIRoute } from "astro"
 import { env } from "cloudflare:workers"
 
-import { authorized, forgive, postNotice, throttled } from "../../lib/api.ts"
+import { authorized, forgive, postNotice, refused, throttled } from "../../lib/api.ts"
 
 export const POST: APIRoute = async ({ request }) => {
-  if (throttled(request))
-    return new Response(JSON.stringify({ error: "too many attempts" }), {
-      status: 429,
-      headers: { "content-type": "application/json", "retry-after": "60" },
-    })
-  if (!(await authorized(request, env.ADMIN_TOKEN)))
-    return new Response(JSON.stringify({ error: "unauthorized" }), {
-      status: 401,
-      headers: { "content-type": "application/json" },
-    })
+  if (throttled(request)) return refused("throttled")
+  if (!(await authorized(request, env.ADMIN_TOKEN))) return refused("unauthorized")
   forgive(request)
   return postNotice(request, env.DB)
 }

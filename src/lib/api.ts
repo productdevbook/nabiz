@@ -287,6 +287,18 @@ a brake rather than a limit. A refusal carries retry-after.
 
 /** `null` is what JSON.parse makes of "null", and a body that is not an
  *  object has no fields to read — both are the same bad request. */
+/** The two answers a write can be refused with. They are CORS-open like
+ *  every other answer here: a refusal a cross-origin operator page cannot
+ *  read is the one it most needs. */
+export function refused(what: "throttled" | "unauthorized"): Response {
+  if (what === "throttled") {
+    const answer = json({ error: "too many attempts" }, 429)
+    answer.headers.set("retry-after", "60")
+    return answer
+  }
+  return json({ error: "unauthorized" }, 401)
+}
+
 async function jsonBody<T>(request: Request): Promise<T | null> {
   try {
     const parsed: unknown = await request.json()
