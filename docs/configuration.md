@@ -19,7 +19,7 @@ On Cloudflare these are `[vars]` in `wrangler.toml` and secrets set with
 | `PORT` | `8080` | |
 | `HOST` | `0.0.0.0` | |
 | `NABIZ_DB` | `./nabiz.db`, and `/data/nabiz.db` in the image | the SQLite file; the schema is applied on start |
-| `NABIZ_INTERVAL_MS` | `60000` | how often the probe round runs |
+| `NABIZ_INTERVAL_MS` | `60000` | how often the probe round runs — raw checks are kept two days, so halving this doubles the rows kept: about 20,000 per monitor at the default, 600,000 at two seconds |
 | `NABIZ_DIST` | next to the source | where the built site is |
 | `NABIZ_SCHEMA` | `schema.sql` beside it | the schema applied on start |
 | `TRUST_PROXY` | off | see below |

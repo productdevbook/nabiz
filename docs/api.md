@@ -1,7 +1,8 @@
 # API
 
-Read-only, CORS-open and uncached: what you get is what is true at the
-moment you asked. Three of them answer in a language — `/`, `/feed.xml`
+Read-only and CORS-open. What you get is held for at most fifteen seconds
+or until the next probe round writes, whichever comes first — so it is
+never older than the round behind it. Three of them answer in a language — `/`, `/feed.xml`
 and `/api/notices.json` take `?lang=` (`en`, `tr`, `de`, `es`, `fr`); the
 rest carry no words to translate.
 
@@ -32,6 +33,11 @@ was rendered — so a page whose probe loop has stopped, or whose disk is
 full, goes stale in that field while everything else still answers. It is
 `null` before the first probe. Watching it is how a machine tells a
 working status page from a frozen one; `/health` cannot, by design.
+
+`history.json`'s `avg_ms` averages every probe of that day, a failed one's
+timeout included; `status.json`'s `latency_ms` is the last **successful**
+probe. A monitor that has never answered therefore has an `avg_ms` and no
+`latency_ms`, and the two figures are not comparable.
 
 `status` is one of four for the whole page: `up`; `sites` when only some
 of the hosted sites are unreachable and everything else is serving;

@@ -52,8 +52,9 @@ source, same schema. *nabız* is Turkish for "pulse"; the ASCII spelling
 - Anti-flap: a watched monitor is called down after `fail_threshold`
   consecutive failures (default 2); recovery is immediate, and a monitor
   that is already down when first seen is believed at once.
-- 90-day uptime bars, and a latency sparkline once there are two hours
-  of probes behind it.
+- 90-day uptime bars, and a latency sparkline once there are probes in two
+  different hours — it averages by the hour, so a fresh deployment has no
+  waveform until the clock crosses one.
 - Grouped monitors: one row saying how the group is, never how many it
   speaks for and never their names.
 - Operator notices in markdown, with severity and per-language targeting.

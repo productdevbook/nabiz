@@ -53,11 +53,11 @@ has to exist already.
 
 ## Under load
 
-The page and the API are held for fifteen seconds in the process — the
-same window a Cloudflare deployment holds them at the edge, and less than
-the time between two probes, so nothing served is staler than the data
-behind it. Anything written through nabiz drops it at once, so a notice
-you publish is on the page when it reloads.
+The page and the API are held in the process for fifteen seconds **or
+until the next write, whichever comes first** — and every probe round is a
+write, so what is served is never older than the round behind it whatever
+`NABIZ_INTERVAL_MS` is set to. A notice you publish is on the page when it
+reloads, for the same reason.
 
 Measured on forty monitors with ninety days of history, fifty concurrent
 readers: about 320 requests a second for the HTML and 3,500 for
