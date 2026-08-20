@@ -1,4 +1,4 @@
-export type Lang = "en" | "tr" | "de" | "es" | "fr"
+export type Lang = "en" | "tr" | "de" | "es" | "fr" | "zh_CN"
 
 const strings = {
   en: {
@@ -201,6 +201,56 @@ const strings = {
     aria_severity: "gravedad",
     ed_offline: "La solicitud no llegó a la página. Comprueba la conexión e inténtalo de nuevo.",
   },
+  zh_CN: {
+    all_up: "所有系统运行正常",
+    some_down: "部分系统出现故障",
+    sites_down: "部分已发布的站点无法访问",
+    all_down: "重大故障",
+    up: "正常",
+    partly: "部分正常",
+    down: "故障",
+    recovered: "已恢复",
+    after: "之后",
+    no_data: "暂无数据",
+    updated: "更新时间",
+    window_ago: "{n} 天前",
+    today: "今天",
+    recent_events: "最近事件",
+    last_day: "延迟，过去 24 小时",
+    services: "服务",
+    notices: "公告",
+    resolved: "已解决",
+    sev_info: "通知",
+    sev_maintenance: "维护",
+    sev_degraded: "性能下降",
+    sev_outage: "中断",
+    ed_title: "新建公告",
+    ed_body: "发生了什么？可使用 Markdown。",
+    ed_token: "访问令牌",
+    ed_publish: "发布",
+    ed_resolve: "标记为已解决",
+    ed_cancel: "取消",
+    ed_failed: "令牌被拒绝。",
+    ed_lang_all: "所有语言",
+    foot_tag: "开源状态页",
+    foot_follow: "关注",
+    unit_h: "时",
+    unit_m: "分",
+    unit_s: "秒",
+    ed_throttled: "尝试次数过多，请一分钟后再试。",
+    ed_rejected: "公告被拒绝：请检查长度和严重程度。",
+    aria_theme: "主题",
+    no_monitors: "还没有任何监控项。监控项是数据库中的行。",
+    no_answer: "无响应",
+    why_timeout: "超时",
+    why_unreachable: "无法访问",
+    why_incomplete: "有响应，但随后中断",
+    why_body: "有响应，但内容不符合预期",
+    aria_lang: "语言",
+    aria_notice_lang: "公告语言",
+    aria_severity: "严重程度",
+    ed_offline: "请求未能到达页面。请检查连接后重试。",
+  },
   fr: {
     all_up: "Tous les systèmes fonctionnent",
     some_down: "Certains systèmes rencontrent des problèmes",
@@ -259,7 +309,7 @@ export type Key = keyof (typeof strings)["en"]
  *  test can walk all of them rather than the handful somebody remembered. */
 export const KEYS = Object.keys(strings.en) as Key[]
 
-export const LANGS: Lang[] = ["en", "tr", "de", "es", "fr"]
+export const LANGS: Lang[] = ["en", "tr", "de", "es", "fr", "zh_CN"]
 
 export const table: Record<Lang, Record<string, string>> = strings
 
@@ -279,6 +329,7 @@ export const NAMES: Record<Lang, string> = {
   de: "Deutsch",
   es: "Español",
   fr: "Français",
+  zh_CN: "简体中文",
 }
 
 export function langOf(value: string | undefined): Lang {
