@@ -153,9 +153,30 @@ describe("how long an outage was", () => {
   test("a row written before this release still answers, from what it has", async () => {
     const minute = 60_000
     const now = Date.now()
-    const { db } = withState([{ monitor_id: 1, ok: 0, since: now - 5 * minute, fails: 2 }])
+    // Five minutes down at a minute a round is five failures on the row;
+    // there is no fail_at, so `since` is what it has.
+    const { db } = withState([{ monitor_id: 1, ok: 0, since: now - 5 * minute, fails: 5 }])
     const [change] = await record(db, [result(true)])
     expect(Math.round((change?.heldFor ?? 0) / 60)).toBe(5)
+  })
+
+  test("an outage cannot be longer than the failures that reach back to it", async () => {
+    const minute = 60_000
+    const now = Date.now()
+    // A process that failed once, stopped for three days, came back, failed
+    // again and recovered a minute later. Two failures cannot span three
+    // days at a minute a round, whatever the row remembers.
+    const { db } = withState([
+      {
+        monitor_id: 1,
+        ok: 0,
+        since: now - 3 * 86_400_000,
+        fails: 2,
+        fail_at: now - 3 * 86_400_000,
+      },
+    ])
+    const [change] = await record(db, [result(true)], minute)
+    expect(Math.round((change?.heldFor ?? 0) / 60)).toBe(3)
   })
 
   test("going down is timed from the probe that failed, not the one that admitted it", async () => {

@@ -32,7 +32,8 @@ export async function tick(
 
   const deadline = AbortSignal.timeout(within)
   const results = await Promise.all(watched.map((m) => probe(m, deadline)))
-  const changes = await record(db, results)
+  // The round's own length, not the deadline it must fit inside.
+  const changes = await record(db, results, Math.round(within / 0.75))
   // A quarter of the round's budget: a channel that hangs must not cost
   // the rounds that come after it.
   const refused = await alert(

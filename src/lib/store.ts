@@ -27,8 +27,14 @@ function utcDay(at: number): string {
   return new Date(at).toISOString().slice(0, 10)
 }
 
-/** Writes one round of results and returns whichever monitors changed state. */
-export async function record(db: Db, results: ProbeResult[]): Promise<StateChange[]> {
+/** Writes one round of results and returns whichever monitors changed
+ *  state. `round` is how long a round is worth, which is what bounds how
+ *  far back a run of failures can have started. */
+export async function record(
+  db: Db,
+  results: ProbeResult[],
+  round = 60_000,
+): Promise<StateChange[]> {
   const now = Date.now()
   const day = utcDay(now)
 
@@ -115,12 +121,12 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
     if (r.ok) {
       if (!was.ok) {
         // From the first probe that failed, not from the one that crossed
-        // the threshold: the failures before it were part of the outage.
-        changes.push({
-          monitor: r.monitor,
-          ok: true,
-          heldFor: Math.round((now - (was.fail_at ?? was.since)) / 1000),
-        })
+        // the threshold: the failures before it were part of the outage —
+        // and never further back than those failures reach, or a process
+        // that was away for three days reports the minute it came back as
+        // three days of outage.
+        const began = Math.max(was.fail_at ?? was.since, now - (was.fails + 1) * round)
+        changes.push({ monitor: r.monitor, ok: true, heldFor: Math.round((now - began) / 1000) })
         event(r.monitor, true)
         put(r.monitor.id, true, now, 0, r, null)
       } else {
@@ -132,7 +138,11 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
     // One blip in a minute-long window is weather; the monitor is not
     // called down until fail_threshold probes in a row have said so.
     const fails = was.fails + 1
-    const failAt = was.fail_at ?? now
+    // Never further back than the failures themselves reach. A process
+    // that stopped after one failed probe and came back three days later
+    // still has that first failure on the row, and reported the minute-long
+    // outage that followed as seventy-two hours.
+    const failAt = Math.max(was.fail_at ?? now, now - fails * round)
     if (was.ok && fails >= r.monitor.fail_threshold) {
       // It stopped being up when it first failed, not when we admitted it.
       changes.push({
