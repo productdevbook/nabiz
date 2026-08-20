@@ -13,15 +13,21 @@ From [`schema.sql`](../schema.sql):
 | `slug` | — | unique, short, yours |
 | `name` | — | what the page calls it |
 | `url` | — | what is fetched |
-| `method` | `GET` | any HTTP method |
+| `method` | `GET` | any HTTP method. `HEAD` answers with no body, so it cannot be combined with `expect_body` — that pair is red forever |
 | `expect_status` | `200` | anything else is a failure; redirects are not followed |
 | `timeout_ms` | `10000` | a probe that takes longer has failed — as does one still waiting when the round's own deadline arrives, which is three quarters of the interval. The body counts: a host that sends headers and then stops is down, however fast the headers were |
 | `expect_body` | `NULL` | when set, a 200 without these words is still a failure. A substring, anywhere in the first 64 KB — pick words a failure page would not also contain |
 | `fail_threshold` | `2` | consecutive failures before a watched monitor is called down; the very first probe is believed at once, since there is no state to keep |
 | `group_name` | `NULL` | the heading it appears under |
-| `grouped` | `0` | `1` shows it only inside its group's tally |
+| `grouped` | `0` | anything but `0` shows it only inside its group's tally |
 | `enabled` | `1` | `0` removes it from the page and the API entirely |
 | `position` | `0` | the order on the page |
+
+A row written by hand is on the page at the next probe round, not at the
+next reload: what a reader sets is dropped when a round writes, and a
+round is the only thing that writes when you edit the table underneath it.
+At the default interval that is within a minute; at a long
+`NABIZ_INTERVAL_MS` it is that long.
 
 ## Adding them on Cloudflare
 

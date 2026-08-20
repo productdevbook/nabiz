@@ -61,7 +61,40 @@ bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE state ADD COLUMN 
 
 # v3.6 → v3.7 — why a monitor is down, when the status code does not say it
 bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE state ADD COLUMN last_reason TEXT"
+
+# v3.8 → v3.9 — which kind of monitor wrote an event, so the page can read a
+# window of each without walking every event ever kept
+bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE events ADD COLUMN grouped INTEGER NOT NULL DEFAULT 0"
+bunx wrangler d1 execute nabiz --remote --command "UPDATE events SET grouped = 1 WHERE monitor_id IN (SELECT id FROM monitors WHERE grouped <> 0)"
+bunx wrangler d1 execute nabiz --remote --command "CREATE INDEX IF NOT EXISTS events_by_kind ON events (grouped, at)"
 ```
+
+The three v3.9 statements are one change and go together: the column, the
+value it should have had for the events already there, and the index that
+makes the column worth having. Run in that order — the index over a column
+that does not exist yet is an error, and this is why a container adds the
+columns **before** it applies `schema.sql` rather than after.
+
+## v3.7 → v3.8 reads bodies, and `expect_body` may need rewording
+
+Before v3.8 a monitor with `expect_body` read the whole response; from
+v3.8 it reads the first 64 KB and no more. A monitor whose words sit
+below that — a footer, a version banner, anything late in a large page —
+goes down at the first round after the upgrade, with an alert, and the
+host it watches is fine. Check before you pull:
+
+```sh
+curl -s https://example.com/ | head -c 65536 | grep -c "the words you configured"
+```
+
+Zero means move the words earlier in the page or point the monitor at a
+smaller endpoint. Nothing else about `expect_body` changed.
+
+Two numbers changed meaning in v3.8 and back in v3.9. A monitor's latency
+was time to the answer, became time to the answer plus its body while the
+cap was being read, and is time to the answer again — so a 90-day history
+that spans v3.8 has a step in it for any monitor serving a large page.
+Nothing has to be done about it; the days already written are not rewritten.
 
 Running them all against a database that is already current is safe — the
 ones it has fail with `duplicate column name` and change nothing — but

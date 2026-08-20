@@ -46,6 +46,11 @@ timeout included; `status.json`'s `latency_ms` is the last **successful**
 probe. A monitor that has never answered therefore has an `avg_ms` and no
 `latency_ms`, and the two figures are not comparable.
 
+Both are time to the answer — the status and its headers — not time to the
+body. The body is read too, up to 64 KB, because a host that answers and
+then stops is down; what that reading costs is not charged to the number
+you chart.
+
 `status` is one of four for the whole page: `up`; `sites` when only some
 of the hosted sites are unreachable and everything else is serving;
 `degraded` when a service is down; `down` when nothing answers.
