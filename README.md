@@ -52,7 +52,8 @@ source, same schema. *nabız* is Turkish for "pulse"; the ASCII spelling
 - Anti-flap: a watched monitor is called down after `fail_threshold`
   consecutive failures (default 2); recovery is immediate, and a monitor
   that is already down when first seen is believed at once.
-- 90-day uptime bars and a 24-hour latency sparkline per monitor.
+- 90-day uptime bars, and a latency sparkline once there are two hours
+  of probes behind it.
 - Grouped monitors: one row saying how the group is, never how many it
   speaks for and never their names.
 - Operator notices in markdown, with severity and per-language targeting.
@@ -68,7 +69,7 @@ Not included: incident timelines, subscriber emails, multi-region probes.
 
 ```sh
 docker run -d --name nabiz -p 8080:8080 -v nabiz:/data \
-  -e NABIZ_TITLE="status" -e ADMIN_TOKEN=… \
+  -e NABIZ_TITLE="status" -e ADMIN_TOKEN="$(openssl rand -hex 32)" \
   ghcr.io/productdevbook/nabiz:latest
 ```
 
@@ -81,8 +82,11 @@ bunx wrangler d1 execute nabiz --remote --file schema.sql
 bun run deploy
 ```
 
-Either way the page comes up empty and working; monitors are rows you add
-next — see [Monitors](docs/monitors.md).
+Either way the page comes up empty and working — a heading with nothing
+under it is the correct first sight. Monitors are rows you add next, and
+the first bar appears within one probe interval: see
+[Monitors](docs/monitors.md). Keep the token you generated above; it is
+what lets you write notices, and nothing prints it again.
 
 ## Development
 

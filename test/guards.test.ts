@@ -78,6 +78,7 @@ describe("a monitor's name is written by an operator and read by everyone", () =
       {
         name: '</h3><img src=x onerror=alert(1)>"&',
         ok: true,
+        code: null,
         partial: false,
         days: [],
         latency: null,

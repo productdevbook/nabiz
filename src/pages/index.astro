@@ -127,7 +127,13 @@ Astro.response.headers.set(
     <section class="panel">
       <header class="panel-h"><h2>{t(lang, "services")}</h2><a href="/api/status.json" title="status.json"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1M16 3h1a2 2 0 0 1 2 2v5a2 2 0 0 0 2 2 2 2 0 0 0-2 2v5a2 2 0 0 1-2 2h-1"></path></svg></a></header>
       <div class="well">
-        <Fragment set:html={list.map((r) => serviceRow(r, lang)).join("\n")} />
+        {
+          list.length === 0 ? (
+            <p class="empty">{t(lang, "no_monitors")}</p>
+          ) : (
+            <Fragment set:html={list.map((r) => serviceRow(r, lang)).join("\n")} />
+          )
+        }
       </div>
     </section>
 
@@ -188,7 +194,7 @@ Astro.response.headers.set(
         </nav>
       </div>
       <div class="foot-base">
-        <span>{t(lang, "updated")} · {when(Date.now())}</span>
+        <span>{t(lang, "updated")} · {data.wrote === null ? t(lang, "no_data") : when(data.wrote)}</span>
         <a href="#notice" id="pen" title={t(lang, "ed_title")}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 20h9"></path>
@@ -218,8 +224,8 @@ Astro.response.headers.set(
       <textarea id="txt" rows="6" placeholder={t(lang, "ed_body")}></textarea>
       <div class="pair">
         <select id="nlang" aria-label={t(lang, "aria_notice_lang")}>
-          <option value="all">{t(lang, "ed_lang_all")}</option>
-          {LANGS.map((l) => <option value={l} selected={l === lang}>{NAMES[l]}</option>)}
+          <option value="all" selected>{t(lang, "ed_lang_all")}</option>
+          {LANGS.map((l) => <option value={l}>{NAMES[l]}</option>)}
         </select>
         <input id="tok" type="password" placeholder={t(lang, "ed_token")} autocomplete="off" />
       </div>

@@ -234,6 +234,9 @@
   .hero .dot.bad {
     --hue: var(--bad);
   }
+  .empty {
+    @apply text-mut px-5 py-6 text-[13.5px];
+  }
   .hero-t {
     @apply min-w-0 flex-1;
   }

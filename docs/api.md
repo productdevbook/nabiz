@@ -64,7 +64,9 @@ curl -X POST https://status.example.com/api/notice/resolve \
   -d '{"id": 1}'
 ```
 
-- `severity`: `info`, `maintenance`, `degraded`, `outage`.
+- `severity`: `info`, `maintenance`, `degraded`, `outage`. The dialog on
+  the page shows these translated — English calls `info` a "notice" — but
+  the value the API takes and returns is always the English key.
 - `lang`: one of the five languages, or `all` — a notice written for one
   language is served only to it.
 - `body`: markdown, 1 to 4000 characters.

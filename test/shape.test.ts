@@ -26,12 +26,12 @@ function monitor(over: Partial<Monitor> = {}): Monitor {
   }
 }
 
-const downNow = (list: Monitor[]) => new Map(list.map((m) => [m.id, { ok: false }]))
+const downNow = (list: Monitor[]) => new Map(list.map((m) => [m.id, { ok: false, code: null }]))
 
 function data(monitors: Monitor[], states: [number, boolean][]): PageData {
   return {
     monitors,
-    states: new Map(states.map(([id, ok]) => [id, { ok }])),
+    states: new Map(states.map(([id, ok]) => [id, { ok, code: null }])),
     days: new Map(),
     latency: new Map(),
     spark: new Map(),
@@ -122,7 +122,7 @@ describe("one customer's site is not every customer's site", () => {
     ])
     const list = rows({
       monitors: members,
-      states: new Map(members.map((m) => [m.id, { ok: m.id !== 5 }])),
+      states: new Map(members.map((m) => [m.id, { ok: m.id !== 5, code: null }])),
       days,
       latency: new Map(),
       spark: new Map(),
@@ -135,7 +135,7 @@ describe("one customer's site is not every customer's site", () => {
   test("half or more unreachable is the machine's problem, fewer is not", () => {
     const shape = (up: number, total: number) => {
       const monitors = hosted(total)
-      const states = new Map(monitors.map((m, i) => [m.id, { ok: i < up }]))
+      const states = new Map(monitors.map((m, i) => [m.id, { ok: i < up, code: null }]))
       return rows({
         monitors,
         states,
@@ -156,10 +156,11 @@ describe("one customer's site is not every customer's site", () => {
 
   test("the banner stays calm while most of a group is serving", () => {
     const partly: Row[] = [
-      { name: "API", ok: true, partial: false, days: [], latency: 10, spark: null },
+      { name: "API", ok: true, code: null, partial: false, days: [], latency: 10, spark: null },
       {
         name: "Hosted sites",
         ok: false,
+        code: null,
         partial: true,
         days: [],
         latency: null,
@@ -175,6 +176,7 @@ describe("one customer's site is not every customer's site", () => {
       {
         name: "Hosted sites",
         ok: false,
+        code: null,
         partial: false,
         days: [],
         latency: null,
@@ -189,6 +191,7 @@ describe("one customer's site is not every customer's site", () => {
       {
         name: "Hosted sites",
         ok: false,
+        code: null,
         partial: true,
         days: [],
         latency: null,
@@ -305,7 +308,8 @@ describe("a row that says it is grouped is never published by name", () => {
     const members = [1, 2, 3, 4, 5].map(() => monitor({ grouped: 1, group_name: "Hosted sites" }))
     const states = new Map(
       members.map(
-        (m, i) => [m.id, { ok: i > 0, since: 0 }] as [number, { ok: boolean; since: number }],
+        (m, i) =>
+          [m.id, { ok: i > 0, since: 0 }] as [number, { ok: boolean; since: number; code: null }],
       ),
     )
     const view = eventsView(members, [{ monitor_id: members[0]?.id ?? 0, at: 5, ok: 0 }], states)
@@ -314,7 +318,7 @@ describe("a row that says it is grouped is never published by name", () => {
 
   test("a group that comes all the way back says so where it crossed", () => {
     const members = [1, 2, 3].map(() => monitor({ grouped: 1, group_name: "Hosted sites" }))
-    const up = new Map(members.map((m) => [m.id, { ok: true }]))
+    const up = new Map(members.map((m) => [m.id, { ok: true, code: null }]))
     // Newest first: three members returning, one at a time. The group
     // stopped being down when the second of them came back, not the third.
     const view = eventsView(
@@ -334,7 +338,7 @@ describe("a row that says it is grouped is never published by name", () => {
   // group was down.
   test("a member's blip announces nothing at all", () => {
     const members = [1, 2, 3, 4, 5].map(() => monitor({ grouped: 1, group_name: "Hosted sites" }))
-    const up = new Map(members.map((m) => [m.id, { ok: true }]))
+    const up = new Map(members.map((m) => [m.id, { ok: true, code: null }]))
     const one = members[1]?.id ?? 0
     const view = eventsView(
       members,
@@ -349,7 +353,7 @@ describe("a row that says it is grouped is never published by name", () => {
 
   test("an outage and its end are one line each, or neither", () => {
     const [a, b] = [1, 2].map(() => monitor({ grouped: 1, group_name: "Hosted sites" }))
-    const up = new Map([a as Monitor, b as Monitor].map((m) => [m.id, { ok: true }]))
+    const up = new Map([a as Monitor, b as Monitor].map((m) => [m.id, { ok: true, code: null }]))
     const view = eventsView(
       [a as Monitor, b as Monitor],
       [
@@ -371,7 +375,7 @@ describe("a row that says it is grouped is never published by name", () => {
         { monitor_id: api.id, at: 20, ok: 1 },
         { monitor_id: api.id, at: 10, ok: 0 },
       ],
-      new Map([[api.id, { ok: true }]]),
+      new Map([[api.id, { ok: true, code: null }]]),
     )
     expect(view.map((e) => e.ok)).toEqual([true, false])
   })
@@ -379,7 +383,7 @@ describe("a row that says it is grouped is never published by name", () => {
   test("the limit counts lines the page shows, not rows the store read", () => {
     const api = monitor({ name: "API" })
     const events = [50, 40, 30, 20, 10].map((at, i) => ({ monitor_id: api.id, at, ok: i % 2 }))
-    const view = eventsView([api], events, new Map([[api.id, { ok: false }]]), 2)
+    const view = eventsView([api], events, new Map([[api.id, { ok: false, code: null }]]), 2)
     expect(view.length).toBe(2)
   })
 })

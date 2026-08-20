@@ -44,7 +44,7 @@ describe("the monitor is not called down on one bad minute", () => {
     expect(changes).toEqual([])
     expect(eventWrites(writes)).toEqual([])
     // …but the strike is counted, and the monitor still reads as up.
-    expect(stateWrite(writes)?.args).toEqual([1, 1, 0, 1])
+    expect(stateWrite(writes)?.args).toEqual([1, 1, 0, 1, null])
   })
 
   test("the threshold-th failure in a row is the outage", async () => {
@@ -97,6 +97,27 @@ describe("the monitor is not called down on one bad minute", () => {
     expect(changes).toEqual([])
     expect(eventWrites(writes)).toEqual([])
     const w = stateWrite(writes)
-    expect(w?.args).toEqual([1, 0, 3, 3])
+    expect(w?.args).toEqual([1, 0, 3, 3, null])
+  })
+})
+
+describe("a monitor that is down the first time it is seen", () => {
+  // Up on the first sighting is not news. Down is: it is the URL somebody
+  // just added, not answering, and silence leaves them wondering whether
+  // the page works at all.
+  test("says so, once", async () => {
+    const { db, writes } = withState([])
+    const changes = await record(db, [result(false)])
+
+    expect(changes).toHaveLength(1)
+    expect(changes[0]?.ok).toBe(false)
+    expect(changes[0]?.heldFor).toBeNull()
+    expect(eventWrites(writes)).toHaveLength(1)
+  })
+
+  test("and one that is up says nothing", async () => {
+    const { db, writes } = withState([])
+    expect(await record(db, [result(true)])).toEqual([])
+    expect(eventWrites(writes)).toEqual([])
   })
 })

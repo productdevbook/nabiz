@@ -33,7 +33,10 @@ docker run -d --name nabiz -p 8080:8080 -v nabiz:/data \
   ghcr.io/productdevbook/nabiz:latest
 ```
 
-Add `-e ADMIN_TOKEN=…` if they gave you one. Pin a version tag for
+Add `-e ADMIN_TOKEN=<their token>` if they gave you one — a real value,
+not a placeholder: an ellipsis or a quotation mark reaches the container
+happily and then cannot be sent in a header, and what the operator sees is
+the page telling them their connection is broken. Pin a version tag for
 anything they rely on. Then verify — all four must hold:
 
 ```sh

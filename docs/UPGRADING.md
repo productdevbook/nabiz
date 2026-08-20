@@ -24,6 +24,10 @@ bunx wrangler d1 execute nabiz --remote --command "CREATE INDEX IF NOT EXISTS da
 # v3.3 → v3.4 — an index no query has used since the two above arrived.
 # Optional: it costs a written row per probe and answers nothing.
 bunx wrangler d1 execute nabiz --remote --command "DROP INDEX IF EXISTS checks_by_monitor"
+
+# v3.4 → v3.5 — what the last probe answered, so a down row can say which
+# kind of down it is
+bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE state ADD COLUMN last_status INTEGER"
 ```
 
 A self-hosted deployment needs none of these by hand: `schema.sql` is

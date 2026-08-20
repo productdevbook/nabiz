@@ -8,12 +8,16 @@ reason to run it inside a network no edge can reach.
 
 ```sh
 docker run -d --name nabiz -p 8080:8080 -v nabiz:/data \
-  -e NABIZ_TITLE="status" -e NABIZ_LANG=en -e ADMIN_TOKEN=… \
+  -e NABIZ_TITLE="status" -e NABIZ_LANG=en \
+  -e ADMIN_TOKEN="$(openssl rand -hex 32)" \
   ghcr.io/productdevbook/nabiz:latest
 ```
 
-Images are published for `linux/amd64` and `linux/arm64` on every release.
-Pin a version tag (`:3.0.1`) for anything you rely on.
+Images are published for `linux/amd64` and `linux/arm64` on every release,
+tagged `:latest`, `:3`, `:3.4` and `:3.4.0`. Pin at least the major for
+anything you rely on; pin the full version if you would rather decide when
+to move. Note that the documentation on GitHub tracks `main`, so it can be
+ahead of the image you are running.
 
 Nothing is configured in the image: an empty volume boots to an empty,
 working page, and monitors are rows you add afterwards — see
@@ -24,7 +28,7 @@ working page, and monitors are rows you add afterwards — see
 [`compose.yaml`](../compose.yaml) is the same thing with a named volume:
 
 ```sh
-ADMIN_TOKEN=… docker compose up -d
+ADMIN_TOKEN="$(openssl rand -hex 32)" docker compose up -d
 ```
 
 ## Kubernetes

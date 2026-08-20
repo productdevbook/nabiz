@@ -61,7 +61,11 @@ CREATE TABLE IF NOT EXISTS state (
   monitor_id INTEGER PRIMARY KEY,
   ok INTEGER NOT NULL,
   since INTEGER NOT NULL,
-  fails INTEGER NOT NULL DEFAULT 0
+  fails INTEGER NOT NULL DEFAULT 0,
+  -- What the last probe answered, so a page can say which kind of failure
+  -- this is: a redirect where a 200 was promised reads nothing like a
+  -- connection that was refused, and NULL is the second of those.
+  last_status INTEGER
 );
 
 -- Every change of state, kept so the page can say not only how things are

@@ -52,6 +52,9 @@ export function statusJson(data: PageData, events: EventRow[]): Response {
         uptime_90d: uptimeOf(r.days),
       }
       if (r.latency !== null) m.latency_ms = r.latency
+      // What the last probe answered, when it was not what was promised:
+      // null means nothing answered at all.
+      if (r.ok === false) m.last_status = r.code
       return m
     }),
     recent_events: eventsView(data.monitors, events, data.states, 20).map((e) => ({
@@ -126,6 +129,18 @@ function escXml(s: string): string {
   return out
 }
 
+/** A notice's first line without the marks that make it markdown: the
+ *  body renders, a title does not. */
+function plain(body: string): string {
+  return (body.split("\n")[0] ?? "")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/\*\*([^*]*)\*\*/g, "$1")
+    .replace(/\*([^*]*)\*/g, "$1")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^#+\s*/, "")
+    .trim()
+}
+
 /** State changes as RSS — the subscription a paid status product sells,
  *  from any feed reader, for nothing. */
 export function feed(
@@ -149,7 +164,7 @@ export function feed(
   for (const n of noticeList) {
     entries.push({
       at: n.at,
-      xml: `<item><title>[${escXml(sevLabel(n.severity, lang))}] ${escXml((n.body_md.split("\n")[0] ?? "").slice(0, 100))}</title><description>${escXml(render(n.body_md))}</description><pubDate>${new Date(n.at).toUTCString()}</pubDate><guid isPermaLink="false">notice-${n.id}</guid><link>${origin}/</link></item>`,
+      xml: `<item><title>[${escXml(sevLabel(n.severity, lang))}] ${escXml(plain(n.body_md).slice(0, 100))}</title><description>${escXml(render(n.body_md))}</description><pubDate>${new Date(n.at).toUTCString()}</pubDate><guid isPermaLink="false">notice-${n.id}</guid><link>${origin}/</link></item>`,
     })
   }
   const items = entries

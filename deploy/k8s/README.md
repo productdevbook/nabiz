@@ -14,7 +14,7 @@ ordinary row.
 kubectl apply -k deploy/k8s
 ```
 
-Before that, edit two things:
+Before that, edit four things:
 
 - `ingress.yaml` — the host (`status.example.com`), the ingress class and,
   if TLS is issued by cert-manager, the annotation left commented there.
@@ -22,6 +22,12 @@ Before that, edit two things:
   `fr`), and the image tag. `:latest` is fine to try; pin a released tag
   for anything you rely on, either on the image line or through the
   `images:` entry in `kustomization.yaml`.
+- `networkpolicy.yaml` — the namespace your ingress controller runs in.
+  Applied unedited on a cluster whose ingress lives elsewhere, it makes
+  the page unreachable.
+- `ingress.yaml` again — `secretName: nabiz-tls` names a secret something
+  has to create. With cert-manager, uncomment the annotation; without it,
+  create the secret yourself or drop the `tls:` block.
 
 `pvc.yaml` asks for 1Gi from the default storage class. A year of history
 for a few dozen monitors is a handful of megabytes; the size is there to

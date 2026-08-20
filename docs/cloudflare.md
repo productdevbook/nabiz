@@ -8,7 +8,13 @@ runs the probes from it, D1 keeps the history. It fits in the free tier.
 ```sh
 git clone https://github.com/productdevbook/nabiz && cd nabiz
 bun install
-bunx wrangler d1 create nabiz                        # put the id into wrangler.toml
+bunx wrangler d1 create nabiz
+```
+
+That last command prints a `database_id`. **Put it into `wrangler.toml`
+before going on** — the two commands below read it from there:
+
+```sh
 bunx wrangler d1 execute nabiz --remote --file schema.sql
 bun run deploy                                       # astro build + wrangler deploy
 ```

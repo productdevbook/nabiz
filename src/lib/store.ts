@@ -56,15 +56,16 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
 
   const changes: StateChange[] = []
   const stateWrites: Stmt[] = []
-  const put = (id: number, ok: boolean, since: number, fails: number) =>
+  const put = (id: number, ok: boolean, since: number, fails: number, status: number | null) =>
     stateWrites.push(
       db
         .prepare(
-          `INSERT INTO state (monitor_id, ok, since, fails) VALUES (?, ?, ?, ?)
+          `INSERT INTO state (monitor_id, ok, since, fails, last_status) VALUES (?, ?, ?, ?, ?)
            ON CONFLICT (monitor_id)
-           DO UPDATE SET ok = excluded.ok, since = excluded.since, fails = excluded.fails`,
+           DO UPDATE SET ok = excluded.ok, since = excluded.since, fails = excluded.fails,
+                         last_status = excluded.last_status`,
         )
-        .bind(id, ok ? 1 : 0, since, fails),
+        .bind(id, ok ? 1 : 0, since, fails, status),
     )
   const event = (id: number, ok: boolean) =>
     stateWrites.push(
@@ -76,10 +77,17 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
   for (const r of results) {
     const was = known.get(r.monitor.id)
 
-    // The very first sighting is a state, not an event — "it exists and it
-    // is up" is not news anybody needs at three in the morning.
+    // "It exists and it is up" is not news anybody needs at three in the
+    // morning, so a first sighting that is up is a state and nothing more.
+    // A first sighting that is down is news: it is the URL somebody just
+    // added not answering, and saying nothing leaves them watching a red
+    // row wondering whether the page works.
     if (was === undefined) {
-      put(r.monitor.id, r.ok, now, r.ok ? 0 : 1)
+      put(r.monitor.id, r.ok, now, r.ok ? 0 : 1, r.status)
+      if (!r.ok) {
+        changes.push({ monitor: r.monitor, ok: false, heldFor: null })
+        event(r.monitor.id, false)
+      }
       continue
     }
 
@@ -91,9 +99,9 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
           heldFor: Math.round((now - was.since) / 1000),
         })
         event(r.monitor.id, true)
-        put(r.monitor.id, true, now, 0)
-      } else if (was.fails > 0) {
-        put(r.monitor.id, true, was.since, 0)
+        put(r.monitor.id, true, now, 0, r.status)
+      } else {
+        put(r.monitor.id, true, was.since, 0, r.status)
       }
       continue
     }
@@ -104,9 +112,9 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
     if (was.ok && fails >= r.monitor.fail_threshold) {
       changes.push({ monitor: r.monitor, ok: false, heldFor: Math.round((now - was.since) / 1000) })
       event(r.monitor.id, false)
-      put(r.monitor.id, false, now, fails)
+      put(r.monitor.id, false, now, fails, r.status)
     } else {
-      put(r.monitor.id, Boolean(was.ok), was.since, fails)
+      put(r.monitor.id, Boolean(was.ok), was.since, fails, r.status)
     }
   }
 
@@ -171,7 +179,7 @@ export async function recentEvents(db: Db, limit: number): Promise<EventRow[]> {
 
 export interface PageData {
   monitors: Monitor[]
-  states: Map<number, { ok: boolean }>
+  states: Map<number, { ok: boolean; code: number | null }>
   days: Map<number, DayRow[]>
   latency: Map<number, number>
   /** Last day of successful-probe latency, averaged into hours — 24
@@ -189,7 +197,7 @@ export async function forPage(db: Db, window: number): Promise<PageData> {
   const since = new Date(Date.now() - window * 24 * 3600 * 1000).toISOString().slice(0, 10)
 
   const [statesQ, daysQ, latencyQ, sparkQ, wroteQ] = await db.batch<never>([
-    db.prepare("SELECT monitor_id, ok FROM state"),
+    db.prepare("SELECT monitor_id, ok, last_status FROM state"),
     db.prepare("SELECT * FROM days WHERE day >= ? ORDER BY day").bind(since),
     db
       .prepare(`SELECT monitor_id, ms FROM checks WHERE ok = 1 AND at > ? ORDER BY at`)
@@ -211,9 +219,13 @@ export async function forPage(db: Db, window: number): Promise<PageData> {
   )
     throw new Error("the batch came back short, which D1 does not do")
 
-  const states = new Map<number, { ok: boolean }>()
-  for (const s of statesQ.results as unknown as { monitor_id: number; ok: number }[])
-    states.set(s.monitor_id, { ok: Boolean(s.ok) })
+  const states = new Map<number, { ok: boolean; code: number | null }>()
+  for (const s of statesQ.results as unknown as {
+    monitor_id: number
+    ok: number
+    last_status: number | null
+  }[])
+    states.set(s.monitor_id, { ok: Boolean(s.ok), code: s.last_status })
 
   const days = new Map<number, DayRow[]>()
   for (const d of daysQ.results as unknown as DayRow[]) {

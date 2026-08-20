@@ -119,9 +119,15 @@ export function serviceRow(r: Row, lang: Lang): string {
   const pct = uptimeLabel(r.days, lang)
   const figure =
     pct === null ? `<span class="pct none">—</span>` : `<span class="pct">${pct}</span>`
+  // A failure that is a redirect, a 500 or a refused connection are three
+  // different problems and one red pill; the answer goes where the word is.
+  const why =
+    r.ok === false
+      ? ` title="${r.code === null ? esc(t(lang, "no_answer")) : `HTTP ${r.code}`}"`
+      : ""
   return `<section class="svc">
   <header>
-    <div class="who"><h3>${esc(r.name)}</h3><span class="state ${dot}">${word}</span>${tele}</div>
+    <div class="who"><h3>${esc(r.name)}</h3><span class="state ${dot}"${why}>${word}</span>${tele}</div>
     ${figure}
   </header>
   <div class="bars" aria-hidden="true">${bars(r.days, lang)}</div>
