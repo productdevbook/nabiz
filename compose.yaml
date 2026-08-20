@@ -13,7 +13,7 @@ services:
       - nabiz:/data
     environment:
       NABIZ_TITLE: "nabiz"
-      # en, tr, de, es or fr
+      # en, tr, de, es, fr, zh-CN
       NABIZ_LANG: "en"
       # Without this every write is refused, which is a safe way to run.
       ADMIN_TOKEN: "${ADMIN_TOKEN:-}"

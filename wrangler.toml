@@ -21,7 +21,7 @@ database_name = "nabiz"
 database_id = "REPLACE_WITH_YOUR_D1_ID"
 
 [vars]
-# "en", "tr", "de", "es" or "fr"
+# "en", "tr", "de", "es", "fr", "zh-CN"
 LANG = "en"
 TITLE = "nabiz"
 

@@ -36,14 +36,24 @@ why the file puts every index after every table.)
 
 If you skip them, the deployment does not stop, and that is the trouble:
 it starts, `/health` answers 204 **with the new version in `x-nabiz`**, and
-what breaks is whatever reads the missing column — for the v3.5 and v3.7
-ones that is the page, `status.json`, `history.json`, the feed and the
-badge; for the v3.9 one it is the page, `status.json` and the feed, while
-`history.json` and the badge answer as if nothing were wrong. Each returns
-500 with `no such column: …`
-in the log, while `notices.json`, `llms.txt` and `robots.txt` carry on
-answering. Each probe round writes its checks and then fails before the
-state, so pruning and alerting stop too.
+what breaks is whatever reads the missing column, which is not the same
+list for each of them:
+
+- the **v3.5** and **v3.7** columns are read by the page, `status.json`,
+  `history.json`, the feed and the badge — all five return 500 with
+  `no such column: …` in the log,
+- the **v3.9** one by the page, `status.json` and the feed, while
+  `history.json` and the badge answer as if nothing were wrong,
+- and the **v3.12** one by nothing that answers a request at all. Every
+  surface keeps serving; what fails is the probe round, silently, in the
+  log. The page freezes at the last state it knew and `updated_at` stops
+  moving, which is the tell — there is no 500 to find.
+
+Where a surface does return 500, `notices.json`, `llms.txt` and
+`robots.txt` carry on answering regardless. And in every case each probe
+round writes its checks and then fails before the state, so the state
+machine freezes and pruning and alerting stop with it. `updated_at` is
+what to watch after any upgrade.
 
 ```sh
 # v0.1 → v0.2
@@ -75,20 +85,20 @@ bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE state ADD COLUMN 
 # v3.6 → v3.7 — why a monitor is down, when the status code does not say it
 bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE state ADD COLUMN last_reason TEXT"
 
-# v3.11 → v3.12 — when a run of failures began, so a recovery message can
-# count the outage from the probe that failed rather than from the round
-# that admitted it
-bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE state ADD COLUMN fail_at INTEGER"
-
-# v3.9 → v3.10 — the index the hourly sweep uses to keep the column below
-# true when a monitor is moved into a group or out of one
-bunx wrangler d1 execute nabiz --remote --command "CREATE INDEX IF NOT EXISTS events_by_monitor ON events (monitor_id, grouped)"
-
 # v3.8 → v3.9 — which kind of monitor wrote an event, so the page can read a
 # window of each without walking every event ever kept
 bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE events ADD COLUMN grouped INTEGER NOT NULL DEFAULT 0"
 bunx wrangler d1 execute nabiz --remote --command "UPDATE events SET grouped = 1 WHERE monitor_id IN (SELECT id FROM monitors WHERE grouped <> 0)"
 bunx wrangler d1 execute nabiz --remote --command "CREATE INDEX IF NOT EXISTS events_by_kind ON events (grouped, at)"
+
+# v3.9 → v3.10 — the index the hourly sweep uses to keep the column above
+# true when a monitor is moved into a group or out of one
+bunx wrangler d1 execute nabiz --remote --command "CREATE INDEX IF NOT EXISTS events_by_monitor ON events (monitor_id, grouped)"
+
+# v3.11 → v3.12 — when a run of failures began, so a recovery message can
+# count the outage from the probe that failed rather than from the round
+# that admitted it
+bunx wrangler d1 execute nabiz --remote --command "ALTER TABLE state ADD COLUMN fail_at INTEGER"
 ```
 
 The three v3.9 statements are one change and go together: the column, the

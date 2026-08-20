@@ -19,7 +19,7 @@ Before that, edit four things:
 - `ingress.yaml` — the host (`status.example.com`), the ingress class and,
   if TLS is issued by cert-manager, the annotation left commented there.
 - `deployment.yaml` — `NABIZ_TITLE`, `NABIZ_LANG` (`en`, `tr`, `de`, `es`,
-  `fr`), and the image tag. `:latest` is fine to try; pin a released tag
+  `fr`, `zh-CN`), and the image tag. `:latest` is fine to try; pin a released tag
   for anything you rely on, either on the image line or through the
   `images:` entry in `kustomization.yaml`.
 - `networkpolicy.yaml` — the namespace your ingress controller runs in.
