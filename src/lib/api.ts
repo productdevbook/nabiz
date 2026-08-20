@@ -6,6 +6,7 @@ import { sevLabel, WINDOW } from "./render.ts"
 import type { Overall } from "./shape.ts"
 import { eventsView, overall, rows, uptimeOf } from "./shape.ts"
 import type { EventRow, Notice, PageData } from "./store.ts"
+import { VERSION } from "./version.ts"
 
 // Read-only public data; the same courtesy the page extends, for machines.
 const CORS = { "access-control-allow-origin": "*" }
@@ -205,7 +206,8 @@ ${items}
 export function llms(origin: string, title: string): Response {
   const text = `# ${title}
 
-> A status page run by nabiz (https://github.com/productdevbook/nabiz). The
+> A status page run by nabiz ${VERSION}
+> (https://github.com/productdevbook/nabiz). The
 > services listed on it are probed once a minute and ninety days of history
 > are kept. Everything here is public, read-only and CORS-open. Every
 > answer here is held briefly — at most fifteen seconds on Cloudflare, and
@@ -223,7 +225,7 @@ but named elsewhere; neither their names nor their number is published.
 - [notices.json](${origin}/api/notices.json): operator-written notices, markdown and rendered
 - [badge.svg](${origin}/badge.svg): the overall state as a badge
 - [feed.xml](${origin}/feed.xml): state changes and notices as RSS
-- [health](${origin}/health): 204 when the status page itself is alive, with no database behind it
+- [health](${origin}/health): 204 when the status page itself is alive, with no database behind it, and an "x-nabiz" header carrying the build
 - [robots.txt](${origin}/robots.txt): crawling is welcome; it points here
 
 ## Asking cheaply

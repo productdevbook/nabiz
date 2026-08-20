@@ -14,13 +14,16 @@ rest carry no words to translate.
 | `/badge.svg` | the overall state as an SVG badge, always in English |
 | `/feed.xml` | state changes and notices as RSS |
 | `/llms.txt` | all of this in plain text, where agents look |
-| `/health` | 204, with no database behind it |
+| `/health` | 204, with no database behind it, and `x-nabiz` — the build answering |
 | `/robots.txt` | crawling is welcome, and it points at `/llms.txt` |
 
 ## Without scraping the page
 
 - `/` and `/api/status.json` carry an `x-status` header — `up`, `sites`,
   `degraded` or `down`. A `HEAD /` is enough to read the overall state.
+- `HEAD /health` carries `x-nabiz`, the version of nabiz that is
+  answering. It is the only way to ask a running deployment which build it
+  is; nothing else it serves says so.
 - `GET /` with `Accept: application/json` (and no `text/html`) returns the
   `status.json` body instead of HTML.
 - A `Link` header on the HTML `/` points to `llms.txt`, the JSON and the
