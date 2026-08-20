@@ -71,6 +71,25 @@ describe("a marker is not part of an address", () => {
     expect(html).toContain("<code>[a](https://evil.example)</code>")
   })
 
+  test("a code span inside a link's text is published, not its marker", () => {
+    // A replacement string is not rescanned, so a span held before the
+    // link was carried into the link's text and left there as the marker.
+    const html = render("Migration of the [`/api/status.json`](https://example.com/docs) endpoint")
+    expect(html).toContain("<code>/api/status.json</code></a>")
+    expect(html).not.toContain("&0&")
+  })
+
+  test("nothing a reader sees is ever a marker", () => {
+    for (const body of [
+      "[a `b` c](https://example.com/)",
+      "[`a`](https://example.com/) and [`b`](https://example.com/)",
+      "- [`a`](https://example.com/)",
+      "`a` [b `c`](https://example.com/) `d`",
+      "[**a** `b`](https://example.com/)",
+    ])
+      expect(/&\d+&/.test(render(body))).toBe(false)
+  })
+
   test("emphasis inside a link's text still reads", () => {
     expect(render("[*a*](https://example.com/)")).toContain("<em>a</em></a>")
   })

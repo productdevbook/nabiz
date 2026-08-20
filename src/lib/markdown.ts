@@ -28,6 +28,8 @@ function inline(s: string): string {
   // A bare ampersand cannot come out of esc(), so an operator cannot type
   // one of these: what is put back is only ever what was held.
   const hold = (html: string): string => `&${held.push(html) - 1}&`
+  const put = (text: string): string =>
+    text.replace(/&(\d+)&/g, (whole, i: string) => held[Number(i)] ?? whole)
   return (
     s
       // Code first and held out of everything after it: the stars inside a
@@ -38,8 +40,13 @@ function inline(s: string): string {
       // running those rules over a URL wrote their tags into the href.
       .replace(
         /\[([^\]]{1,400})\]\((https?:\/\/[^)\s<>]{1,2000})\)/g,
+        // Put back inside the link's own text, because a replacement is
+        // not rescanned: a code span held before the link would otherwise
+        // be published as the marker itself.
         (_, text: string, url: string) =>
-          hold(`<a href="${url}" rel="noopener noreferrer" target="_blank">${stars(text)}</a>`),
+          hold(
+            `<a href="${url}" rel="noopener noreferrer" target="_blank">${put(stars(text))}</a>`,
+          ),
       )
       .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
       .replace(/\*([^*]+)\*/g, "<em>$1</em>")
