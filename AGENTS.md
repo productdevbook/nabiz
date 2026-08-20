@@ -96,6 +96,11 @@ Two laws cover every corner; do not invent new radii:
   (`color-mix(in srgb, var(--hue) 14%, var(--panel))`) — never
   white-on-solid. Pills and chips are capsules (`rounded-full`).
 
+A day bar carries its state in height as well as hue — a full column,
+two thirds, and under half — because for a reader with deuteranopia a good
+day and a bad one are the same olive. Its 2px corner is the one radius
+outside the two laws: it is a tick, not a surface.
+
 Colors are green-tempered neutrals defined three times (`:root`, the
 `prefers-color-scheme: dark` block guarded with `:not([data-theme="light"])`,
 and `[data-theme="dark"]`) — a color defined in only one of them is a bug.

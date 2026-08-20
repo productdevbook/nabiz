@@ -433,7 +433,7 @@
   /* History as day bars: confident blocks, one per day, growing under
    * the cursor so the day and its number feel touchable. */
   .bars {
-    @apply mt-3.5 mb-2 flex h-[26px] items-stretch gap-[3px];
+    @apply mt-3.5 mb-2 flex h-[26px] items-end gap-[3px];
   }
   /* Ninety gaps of three pixels is 267 of them, which is wider than a
    * phone: every bar computed to zero width and the history rendered as a
@@ -443,9 +443,17 @@
       @apply gap-px;
     }
   }
+  /* The day says which day it was in height as well as in hue. A reader
+   * with deuteranopia sees a good day and a bad one 1.17:1 apart — the
+   * same olive — and a protanope sees good and degraded at 1.00:1, so the
+   * colour is the whole of the message only for some readers. The bar with
+   * no data behind it is a hairline rather than a full block, because a
+   * row with no history was reading as a solid band. */
   .bars i {
     @apply min-w-0 flex-1 rounded-[2px];
+    height: 3px;
     background: var(--none);
+    transform-origin: bottom;
     transition:
       transform 0.12s ease,
       filter 0.12s ease;
@@ -462,12 +470,15 @@
     }
   }
   .bars i.ok {
+    @apply h-full;
     background: var(--ok);
   }
   .bars i.meh {
+    height: 65%;
     background: var(--meh);
   }
   .bars i.bad {
+    height: 40%;
     background: var(--bad);
   }
   /* The footer is the time axis, oldest to newest. */
