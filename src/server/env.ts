@@ -11,7 +11,7 @@ export const DB_PATH = process.env.NABIZ_DB ?? "./nabiz.db"
 export const db: SqliteDb = (held.nabizDb ??= openSqlite(DB_PATH))
 
 // LANG is a POSIX variable before it is ours: a base image setting it to
-// C.UTF-8 must not count as an answer to which of the five languages this
+// C.UTF-8 must not count as an answer to which of the six languages this
 // page speaks.
 const posix = process.env.LANG ?? ""
 

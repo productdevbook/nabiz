@@ -1,4 +1,4 @@
-export type Lang = "en" | "tr" | "de" | "es" | "fr" | "zh_CN"
+export type Lang = "en" | "tr" | "de" | "es" | "fr" | "zh-CN"
 
 const strings = {
   en: {
@@ -10,7 +10,7 @@ const strings = {
     partly: "partly up",
     down: "down",
     recovered: "recovered",
-    after: "after",
+    after: "after {t}",
     no_data: "no data yet",
     updated: "Updated",
     window_ago: "{n} days ago",
@@ -60,7 +60,7 @@ const strings = {
     partly: "kısmen ayakta",
     down: "ayakta değil",
     recovered: "toparlandı",
-    after: "süre:",
+    after: "süre: {t}",
     no_data: "henüz veri yok",
     updated: "Güncellendi",
     window_ago: "{n} gün önce",
@@ -110,7 +110,7 @@ const strings = {
     partly: "teilweise erreichbar",
     down: "ausgefallen",
     recovered: "wiederhergestellt",
-    after: "nach",
+    after: "nach {t}",
     no_data: "noch keine Daten",
     updated: "Aktualisiert",
     window_ago: "vor {n} Tagen",
@@ -160,7 +160,7 @@ const strings = {
     partly: "parcialmente activo",
     down: "caído",
     recovered: "recuperado",
-    after: "tras",
+    after: "tras {t}",
     no_data: "sin datos aún",
     updated: "Actualizado",
     window_ago: "hace {n} días",
@@ -201,7 +201,7 @@ const strings = {
     aria_severity: "gravedad",
     ed_offline: "La solicitud no llegó a la página. Comprueba la conexión e inténtalo de nuevo.",
   },
-  zh_CN: {
+  "zh-CN": {
     all_up: "所有系统运行正常",
     some_down: "部分系统出现故障",
     sites_down: "部分已发布的站点无法访问",
@@ -210,7 +210,7 @@ const strings = {
     partly: "部分正常",
     down: "故障",
     recovered: "已恢复",
-    after: "之后",
+    after: "{t}后",
     no_data: "暂无数据",
     updated: "更新时间",
     window_ago: "{n} 天前",
@@ -234,8 +234,8 @@ const strings = {
     ed_lang_all: "所有语言",
     foot_tag: "开源状态页",
     foot_follow: "关注",
-    unit_h: "时",
-    unit_m: "分",
+    unit_h: "小时",
+    unit_m: "分钟",
     unit_s: "秒",
     ed_throttled: "尝试次数过多，请一分钟后再试。",
     ed_rejected: "公告被拒绝：请检查长度和严重程度。",
@@ -260,7 +260,7 @@ const strings = {
     partly: "partiellement en ligne",
     down: "hors ligne",
     recovered: "rétabli",
-    after: "après",
+    after: "après {t}",
     no_data: "pas encore de données",
     updated: "Mis à jour",
     window_ago: "il y a {n} jours",
@@ -309,7 +309,7 @@ export type Key = keyof (typeof strings)["en"]
  *  test can walk all of them rather than the handful somebody remembered. */
 export const KEYS = Object.keys(strings.en) as Key[]
 
-export const LANGS: Lang[] = ["en", "tr", "de", "es", "fr", "zh_CN"]
+export const LANGS: Lang[] = ["en", "tr", "de", "es", "fr", "zh-CN"]
 
 export const table: Record<Lang, Record<string, string>> = strings
 
@@ -329,7 +329,7 @@ export const NAMES: Record<Lang, string> = {
   de: "Deutsch",
   es: "Español",
   fr: "Français",
-  zh_CN: "简体中文",
+  "zh-CN": "简体中文",
 }
 
 export function langOf(value: string | undefined): Lang {

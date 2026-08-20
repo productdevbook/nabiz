@@ -243,7 +243,8 @@ the status.json body instead of HTML. A Link header on the HTML page
 points to this file, the JSON and the RSS feed, and the HTML head carries
 the same links as <link rel="alternate">.
 
-The page, the feed and notices.json take ?lang= (en, tr, de, es, fr).
+The page, the feed and notices.json take ?lang= (en, tr, de, es, fr,
+zh-CN).
 The page and the feed translate their words and serve a notice written
 for one language only to that language; notices.json does the same when
 asked for a language, and returns every notice when not. The other
@@ -276,7 +277,8 @@ the second-worst, so one host's bad day is not billed to the others.
 For the operator, with a token. POST ${origin}/api/notice with
 Authorization: Bearer <token> and a JSON body of {"body": "markdown",
 "severity": "info|maintenance|degraded|outage", "lang":
-"all|en|tr|de|es|fr"}; POST ${origin}/api/notice/resolve with the same
+"all|en|tr|de|es|fr|zh-CN"}; POST ${origin}/api/notice/resolve with the
+same
 header and {"id": n}.
 
 Ten guesses at the token a minute per address, counted in the memory of

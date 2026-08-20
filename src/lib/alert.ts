@@ -12,18 +12,20 @@ function held(seconds: number | null, lang: Lang): string {
   if (seconds === null) return ""
   const h = Math.floor(seconds / 3600)
   const m = Math.floor((seconds % 3600) / 60)
-  // A space between the number and the unit: "1h" is English, and the
-  // other four write "1 Std", "1 sa", "1 min". And under a minute is
+  // A space between the number and the unit, because "1 Std", "1 sa" and
+  // "1 min" want one — Chinese does not: 2小时5分钟. And under a minute is
   // seconds, not a rounded-down zero — at a short interval most outages
   // are under a minute.
-  const say = (n: number, unit: "unit_h" | "unit_m" | "unit_s") => `${n} ${t(lang, unit)}`
+  const gap = lang === "zh-CN" ? "" : " "
+  const say = (n: number, unit: "unit_h" | "unit_m" | "unit_s") => `${n}${gap}${t(lang, unit)}`
   const text =
     h > 0
-      ? `${say(h, "unit_h")} ${say(m, "unit_m")}`
+      ? `${say(h, "unit_h")}${gap}${say(m, "unit_m")}`
       : m > 0
         ? say(m, "unit_m")
         : say(seconds, "unit_s")
-  return ` (${t(lang, "after")} ${text})`
+  // The word goes where the language puts it: "after 2h", "{t}后".
+  return ` (${t(lang, "after").replace("{t}", text)})`
 }
 
 /** Long enough for a channel having a slow minute. The round passes its

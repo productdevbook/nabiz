@@ -26,8 +26,11 @@ export function percent(pct: number, lang: Lang): string {
   // 18.4 — `18.4 * 100` is 1839.9999999999998, and flooring that dropped a
   // hundredth the rule never meant to drop.
   const plain = pct === 100 ? "100" : (Math.floor(pct * 100 + 1e-9) / 100).toFixed(2)
-  const n = lang === "en" ? plain : plain.replace(".", ",")
+  // A point and no space in English and Chinese; a comma in the rest, and
+  // the sign in front of it in Turkish.
+  const n = lang === "en" || lang === "zh-CN" ? plain : plain.replace(".", ",")
   if (lang === "tr") return `%${n}`
+  if (lang === "zh-CN") return `${n}%`
   // A non-breaking space: the four languages that put one before the sign
   // were dropping the sign onto its own line on a phone.
   return lang === "en" ? `${n}%` : `${n}\u00a0%`
