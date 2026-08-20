@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test"
 
-import { feed, forgive, llms, postNotice, throttled } from "../src/lib/api.ts"
+import { feed, forgive, llms, postNotice, postResolve, throttled } from "../src/lib/api.ts"
 import type { Db } from "../src/lib/db.ts"
 import type { Monitor } from "../src/lib/probe.ts"
 import type { Notice, PageData } from "../src/lib/store.ts"
+import { fakeDb } from "./fake-d1.ts"
 
 const from = (ip: string) =>
   new Request("https://status.example.com/api/notice", {
@@ -213,5 +214,38 @@ describe("the page says when it last learned anything", () => {
     const { statusJson } = await import("../src/lib/api.ts")
     const body = (await statusJson(page([]), []).json()) as { updated_at: string | null }
     expect(body.updated_at).toBeNull()
+  })
+})
+
+/** Enough of a database to be written to: what is under test is what the
+ *  request has to say before it gets that far. */
+const fakeD1 = (): Db => fakeDb(() => [{ id: 1 }]).db
+
+const post = (body: unknown) =>
+  new Request("https://status.example.com/api/notice", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  })
+
+describe("what a write refuses to guess", () => {
+  test("a severity that is not a string is a mistake, not an info notice", async () => {
+    const db = fakeD1()
+    const answers = await Promise.all(
+      [["outage"], null, 3, { of: "outage" }].map((severity) =>
+        postNotice(post({ body: "the site is down", severity }), db),
+      ),
+    )
+    expect(answers.map((a) => a.status)).toEqual([400, 400, 400, 400])
+    // Absent still means info.
+    expect((await postNotice(post({ body: "a note" }), db)).status).toBe(201)
+  })
+
+  test("an id that is not a whole number is refused, not looked up", async () => {
+    const db = fakeD1()
+    const answers = await Promise.all(
+      [1.5, Number.NaN, 1e308, "1"].map((id) => postResolve(post({ id }), db)),
+    )
+    expect(answers.map((a) => a.status)).toEqual([400, 400, 400, 400])
   })
 })

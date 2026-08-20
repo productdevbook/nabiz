@@ -15,6 +15,7 @@ export function fakeDb(rowsBySql: (sql: string) => unknown[]) {
       return {
         ...bound,
         all: async () => ({ results: rowsBySql(sql) }),
+        first: async () => rowsBySql(sql)[0] ?? null,
         run: async () => {
           writes.push(bound)
           return {}
@@ -22,6 +23,7 @@ export function fakeDb(rowsBySql: (sql: string) => unknown[]) {
       }
     },
     all: async () => ({ results: rowsBySql(sql) }),
+    first: async () => rowsBySql(sql)[0] ?? null,
     run: async () => {
       writes.push({ sql, args: [] })
       return {}
