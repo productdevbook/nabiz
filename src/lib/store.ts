@@ -219,11 +219,15 @@ interface Held {
 // probes. The database handle is already pinned across both
 // (src/server/env.ts); what the page remembers has to be pinned the same
 // way, or the round forgets on a map the render never reads.
-const across = globalThis as { nabizPage?: WeakMap<Db, Held> }
+const across = globalThis as { nabizPage?: WeakMap<Db, Held>; nabizWrote?: { n: number } }
 const recent = (across.nabizPage ??= new WeakMap<Db, Held>())
+// Counted, not just cleared: a read that began before a write and finished
+// after it would otherwise store what it saw halfway through.
+const writes = (across.nabizWrote ??= { n: 0 })
 
 /** Called by every write: what the page says next has to include it. */
 export function forget(db: Db): void {
+  writes.n += 1
   recent.delete(db)
 }
 
@@ -231,8 +235,11 @@ export async function forPage(db: Db, window: number): Promise<PageData> {
   const held = recent.get(db)
   if (held !== undefined && held.window === window && Date.now() - held.at < PAGE_MS)
     return held.data
+  const began = writes.n
   const data = await read(db, window)
-  recent.set(db, { at: Date.now(), window, data })
+  // Anything written while this was reading makes it a snapshot of a
+  // moment that never was; serve it, do not remember it.
+  if (writes.n === began) recent.set(db, { at: Date.now(), window, data })
   return data
 }
 
@@ -331,21 +338,21 @@ export async function addNotice(
   body: string,
   lang: string | null,
 ): Promise<number> {
-  forget(db)
   const row = await db
     .prepare("INSERT INTO notices (at, severity, body_md, lang) VALUES (?, ?, ?, ?) RETURNING id")
     .bind(Date.now(), severity, body, lang)
     .first<{ id: number }>()
+  forget(db)
   if (row === null) throw new Error("the insert returned nothing, which D1 does not do")
   return row.id
 }
 
 /** True when something was actually resolved just now. */
 export async function resolveNotice(db: Db, id: number): Promise<boolean> {
-  forget(db)
   const r = await db
     .prepare("UPDATE notices SET resolved_at = ? WHERE id = ? AND resolved_at IS NULL")
     .bind(Date.now(), id)
     .run()
+  forget(db)
   return (r.meta?.changes ?? 0) > 0
 }

@@ -67,7 +67,10 @@ will publish its way out of: it joins a group shown as `—`. Give the group
 a name and the row moves to it.
 
 The group's ninety days and its uptime figure are the median member's, so
-one site's bad afternoon is not billed to everyone else's history; a day
+one site's bad afternoon is not billed to everyone else's history — which
+also means that in a group of two the published day is the worse member's
+own row, counts and latency included. Three or more is where a group
+starts hiding a member rather than relaying one; a day
 fewer than half the members have data for is not published at all. The
 events list follows the same rule: a line appears when the group itself
 went down or came back, never when one member did.

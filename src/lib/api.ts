@@ -153,12 +153,14 @@ export function feed(
   noticeList: Notice[],
   lang: Lang,
 ): Response {
+  // The origin comes from the Host header, which nobody has checked.
+  const here = escXml(origin)
   const entries: { at: number; xml: string }[] = []
   for (const e of eventsView(data.monitors, events, data.states, 50)) {
     const what = e.ok ? t(lang, "recovered") : t(lang, "down")
     entries.push({
       at: e.at,
-      xml: `<item><title>${escXml(e.label)} — ${what}</title><pubDate>${new Date(e.at).toUTCString()}</pubDate><guid isPermaLink="false">${e.at}-${escXml(e.label)}</guid><link>${origin}/</link></item>`,
+      xml: `<item><title>${escXml(e.label)} — ${what}</title><pubDate>${new Date(e.at).toUTCString()}</pubDate><guid isPermaLink="false">${e.at}-${escXml(e.label)}</guid><link>${here}/</link></item>`,
     })
   }
   // What the operator wrote belongs in the same stream as what the probes
@@ -166,7 +168,7 @@ export function feed(
   for (const n of noticeList) {
     entries.push({
       at: n.at,
-      xml: `<item><title>[${escXml(sevLabel(n.severity, lang))}] ${escXml(plain(n.body_md).slice(0, 100))}</title><description>${escXml(render(n.body_md))}</description><pubDate>${new Date(n.at).toUTCString()}</pubDate><guid isPermaLink="false">notice-${n.id}</guid><link>${origin}/</link></item>`,
+      xml: `<item><title>[${escXml(sevLabel(n.severity, lang))}] ${escXml(plain(n.body_md).slice(0, 100))}</title><description>${escXml(render(n.body_md))}</description><pubDate>${new Date(n.at).toUTCString()}</pubDate><guid isPermaLink="false">notice-${n.id}</guid><link>${here}/</link></item>`,
     })
   }
   const items = entries
@@ -176,7 +178,7 @@ export function feed(
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0"><channel>
 <title>${escXml(title)}</title>
-<link>${origin}/</link>
+<link>${here}/</link>
 <description>${escXml(title)}</description>
 ${items}
 </channel></rss>`
@@ -226,9 +228,11 @@ the status.json body instead of HTML. A Link header on the HTML page
 points to this file, the JSON and the RSS feed, and the HTML head carries
 the same links as <link rel="alternate">.
 
-The page, the feed and notices.json take ?lang= (en, tr, de, es, fr):
-they translate their words, and a notice written for one language is
-served only to it. The other endpoints carry no words to translate.
+The page, the feed and notices.json take ?lang= (en, tr, de, es, fr).
+The page and the feed translate their words and serve a notice written
+for one language only to that language; notices.json does the same when
+asked for a language, and returns every notice when not. The other
+endpoints carry no words to translate.
 
 ## Reading status.json
 

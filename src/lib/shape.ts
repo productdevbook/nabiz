@@ -78,7 +78,22 @@ function medianDays(lists: DayRow[][]): DayRow[] {
   return out.toSorted((a, b) => (a.day < b.day ? -1 : 1))
 }
 
+/** Shaped once per read, not once per request. The work a group costs is
+ *  proportional to how many members it hides — and a request that pays it
+ *  every time publishes that number as latency, which is the one number
+ *  this page exists not to publish. Keyed on the data itself, which the
+ *  store already holds for a window. */
+const shaped = new WeakMap<PageData, Row[]>()
+
 export function rows(data: PageData): Row[] {
+  const held = shaped.get(data)
+  if (held !== undefined) return held
+  const built = shape(data)
+  shaped.set(data, built)
+  return built
+}
+
+function shape(data: PageData): Row[] {
   // Monitors arrive ordered by position; a group takes the place of its
   // earliest member, which is the only way an operator can put one
   // anywhere but last.

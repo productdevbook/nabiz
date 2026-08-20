@@ -41,7 +41,7 @@ export function bars(days: DayRow[], lang: Lang): string {
     const day = new Date(Date.now() - i * 24 * 3600 * 1000).toISOString().slice(0, 10)
     const d = byDay.get(day)
     if (d === undefined || d.total === 0) {
-      cells.push(`<i title="${day} · ${t(lang, "no_data")}"></i>`)
+      cells.push(`<i title="${day} · ${esc(t(lang, "no_data"))}"></i>`)
       continue
     }
     const pct = (100 * d.ok) / d.total
