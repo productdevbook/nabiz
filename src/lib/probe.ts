@@ -113,11 +113,13 @@ export async function probe(monitor: Monitor, deadline?: AbortSignal): Promise<P
     // runtimes agree on that much and on nothing finer — except that an
     // answer we had already been given is not "nothing answered".
     //
-    // The monitor's timeout is the only clock this page may blame it for.
-    // When the round's deadline is what fired, a host that had already
-    // answered gets "answered, then stopped" and one that had not gets
-    // "timed out" — saying its own timeout elapsed when it did not is
-    // telling the reader something untrue about somebody else's server.
+    // `timeout` means nothing answered in the time there was, which is the
+    // monitor's own timeout or the round's, whichever came first — a
+    // monitor whose timeout is longer than three quarters of the interval
+    // can never reach it, and docs/monitors.md says so. What the round's
+    // deadline must not do is turn an answer already given into "nothing
+    // answered": a host that sent its status gets "answered, then
+    // stopped", which is what it did.
     return {
       monitor,
       ok: false,

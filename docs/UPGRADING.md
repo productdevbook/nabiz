@@ -13,9 +13,10 @@ volume, the port and the environment. The volume is what carries the
 history; the environment is not stored anywhere, and a token you forget to
 pass is a deployment that refuses every write.
 
-It applies
-`schema.sql` on start, which adds any missing table or index, and then adds
-any missing column itself — printing what it added:
+On start it adds any missing column first — printing what it added — and
+then applies `schema.sql`, which creates any missing table and index. That
+order is deliberate: the file carries indexes over columns the first step
+adds, and an index over a column that does not exist yet is an error.
 
     [nabiz] added state.last_status
 
@@ -24,9 +25,14 @@ Cloudflare deployment has no start to do it at: `wrangler d1 execute --file
 schema.sql` adds tables and indexes and **cannot add a column to a table
 that already exists**, so re-running it is not an upgrade. Run whichever of
 these your D1 database is missing — and run them **before** you re-apply
-`schema.sql`, not after: that file carries indexes over columns these
-statements add, and one statement failing takes the rest of the file with
-it. It is the order a container uses for the same reason.
+`schema.sql`, not after, which is the order a container uses.
+
+`wrangler d1 execute --file` is all-or-nothing: a file whose third
+statement fails leaves the first two undone as well. So re-applying
+`schema.sql` to a database missing a column below does not half-apply it —
+it does nothing at all, and says so. (`bun:sqlite`, which is what a
+container uses, stops at the failure and keeps what ran before it. That is
+why the file puts every index after every table.)
 
 If you skip them, the deployment does not stop, and that is the trouble:
 it starts, `/health` answers 204 **with the new version in `x-nabiz`**, and

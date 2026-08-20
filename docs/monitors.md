@@ -15,7 +15,7 @@ From [`schema.sql`](../schema.sql):
 | `url` | — | what is fetched |
 | `method` | `GET` | any HTTP method. `HEAD` answers with no body, so it cannot be combined with `expect_body` — that pair is red forever |
 | `expect_status` | `200` | anything else is a failure; redirects are not followed |
-| `timeout_ms` | `10000` | a probe that takes longer has failed — as does one still waiting when the round's own deadline arrives, which is three quarters of the interval. The body counts: a host that sends headers and then stops is down, however fast the headers were |
+| `timeout_ms` | `10000` | a probe that takes longer has failed — as does one still waiting when the round's own deadline arrives, which is three quarters of the interval. A timeout longer than that can never be reached: the round ends first and the row says "timed out" of a host that was still answering. The body counts: a host that sends headers and then stops is down, however fast the headers were |
 | `expect_body` | `NULL` | when set, a 200 without these words is still a failure. A substring, anywhere in the first 64 KB — pick words a failure page would not also contain |
 | `fail_threshold` | `2` | consecutive failures before a watched monitor is called down; the very first probe is believed at once, since there is no state to keep |
 | `group_name` | `NULL` | the heading it appears under |
