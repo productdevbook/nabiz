@@ -164,7 +164,7 @@ export async function recentEvents(db: Db, limit: number): Promise<EventRow[]> {
 
 export interface PageData {
   monitors: Monitor[]
-  states: Map<number, { ok: boolean; since: number }>
+  states: Map<number, { ok: boolean }>
   days: Map<number, DayRow[]>
   latency: Map<number, number>
   /** Last day of successful-probe latency, averaged into hours — 24
@@ -177,7 +177,7 @@ export async function forPage(db: Db, window: number): Promise<PageData> {
   const since = new Date(Date.now() - window * 24 * 3600 * 1000).toISOString().slice(0, 10)
 
   const [statesQ, daysQ, latencyQ, sparkQ] = await db.batch<never>([
-    db.prepare("SELECT monitor_id, ok, since FROM state"),
+    db.prepare("SELECT monitor_id, ok FROM state"),
     db.prepare("SELECT * FROM days WHERE day >= ? ORDER BY day").bind(since),
     db
       .prepare(`SELECT monitor_id, ms FROM checks WHERE ok = 1 AND at > ? ORDER BY at`)
@@ -197,9 +197,9 @@ export async function forPage(db: Db, window: number): Promise<PageData> {
   )
     throw new Error("the batch came back short, which D1 does not do")
 
-  const states = new Map<number, { ok: boolean; since: number }>()
-  for (const s of statesQ.results as unknown as { monitor_id: number; ok: number; since: number }[])
-    states.set(s.monitor_id, { ok: Boolean(s.ok), since: s.since })
+  const states = new Map<number, { ok: boolean }>()
+  for (const s of statesQ.results as unknown as { monitor_id: number; ok: number }[])
+    states.set(s.monitor_id, { ok: Boolean(s.ok) })
 
   const days = new Map<number, DayRow[]>()
   for (const d of daysQ.results as unknown as DayRow[]) {

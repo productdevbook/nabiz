@@ -8,6 +8,12 @@
 # The namespace label is the one Kubernetes sets on every namespace; change
 # it to wherever your ingress controller runs, or drop this file from
 # kustomization.yaml and unset TRUST_PROXY.
+#
+# One thing to check on your own cluster: the liveness and readiness probes
+# come from the kubelet on the node, not from a namespace. Most CNIs let
+# host traffic through a policy like this; some do not, and there the pod
+# fails its probes and restarts forever. If that happens, add the node
+# CIDR as a second `from` — or drop this file and unset TRUST_PROXY.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

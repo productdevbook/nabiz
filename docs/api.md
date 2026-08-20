@@ -10,7 +10,7 @@ rest carry no words to translate.
 | `/api/status.json` | overall state, per-monitor status, uptime, latency, recent events |
 | `/api/history.json` | 90 days of daily totals per monitor |
 | `/api/notices.json` | notices, markdown and rendered HTML |
-| `/badge.svg` | the overall state as an SVG badge |
+| `/badge.svg` | the overall state as an SVG badge, always in English |
 | `/feed.xml` | state changes and notices as RSS |
 | `/llms.txt` | all of this in plain text, where agents look |
 | `/health` | 204, with no database behind it |

@@ -26,12 +26,12 @@ function monitor(over: Partial<Monitor> = {}): Monitor {
   }
 }
 
-const downNow = (list: Monitor[]) => new Map(list.map((m) => [m.id, { ok: false, since: 0 }]))
+const downNow = (list: Monitor[]) => new Map(list.map((m) => [m.id, { ok: false }]))
 
 function data(monitors: Monitor[], states: [number, boolean][]): PageData {
   return {
     monitors,
-    states: new Map(states.map(([id, ok]) => [id, { ok, since: 0 }])),
+    states: new Map(states.map(([id, ok]) => [id, { ok }])),
     days: new Map(),
     latency: new Map(),
     spark: new Map(),
@@ -311,7 +311,7 @@ describe("a row that says it is grouped is never published by name", () => {
 
   test("a group that comes all the way back says so once", () => {
     const members = [1, 2, 3].map(() => monitor({ grouped: 1, group_name: "Hosted sites" }))
-    const up = new Map(members.map((m) => [m.id, { ok: true, since: 0 }]))
+    const up = new Map(members.map((m) => [m.id, { ok: true }]))
     // Newest first: everyone recovered, having all been down.
     const view = eventsView(
       members,
@@ -336,7 +336,7 @@ describe("a row that says it is grouped is never published by name", () => {
         { monitor_id: api.id, at: 20, ok: 1 },
         { monitor_id: api.id, at: 10, ok: 0 },
       ],
-      new Map([[api.id, { ok: true, since: 0 }]]),
+      new Map([[api.id, { ok: true }]]),
     )
     expect(view.map((e) => e.ok)).toEqual([true, false])
   })
@@ -344,7 +344,7 @@ describe("a row that says it is grouped is never published by name", () => {
   test("the limit counts lines the page shows, not rows the store read", () => {
     const api = monitor({ name: "API" })
     const events = [50, 40, 30, 20, 10].map((at, i) => ({ monitor_id: api.id, at, ok: i % 2 }))
-    const view = eventsView([api], events, new Map([[api.id, { ok: false, since: 0 }]]), 2)
+    const view = eventsView([api], events, new Map([[api.id, { ok: false }]]), 2)
     expect(view.length).toBe(2)
   })
 })
@@ -384,7 +384,8 @@ describe("a group's ninety days are the group's", () => {
     // Not a thousand imagined checks with no time attached: history.json
     // publishes these as if a probe had produced them.
     expect(published?.total).toBe(1440)
-    expect(published?.ms_sum).toBeGreaterThan(0)
+    // The median member's own timings, not a number that merely exists.
+    expect(published?.ms_sum).toBe(172_800)
   })
 })
 

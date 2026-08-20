@@ -85,7 +85,9 @@ const COLORS: Record<Overall, string> = {
   down: "#d64545",
 }
 
-/** A shields-style badge for a readme: label "status", value the overall. */
+/** A shields-style badge for a readme: label "status", value the overall.
+ *  English whatever the page speaks, and deliberately so — it lives in a
+ *  readme beside build and coverage badges, which are English too. */
 export function badge(data: PageData): Response {
   const state = overall(rows(data))
   const color = COLORS[state]

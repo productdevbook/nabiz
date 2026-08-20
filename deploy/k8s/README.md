@@ -127,6 +127,10 @@ kubectl -n nabiz cp "$pod":/tmp/nabiz-backup.db ./nabiz-backup.db
   log lives beside the database, in there — and `/tmp` is an emptyDir, for
   the scratch files SQLite writes elsewhere, a `VACUUM INTO` backup among
   them.
+- If the pod starts failing its probes the moment the NetworkPolicy is
+  applied, that is the policy cutting off the kubelet rather than nabiz:
+  the probes come from the node, not from a namespace. Add the node CIDR,
+  or drop the policy and unset `TRUST_PROXY`.
 - The container runs as uid 1000 — the image's `bun` user — with all
   capabilities dropped and no privilege escalation. `fsGroup` is what makes
   the volume writable by it; a storage class that ignores `fsGroup` needs

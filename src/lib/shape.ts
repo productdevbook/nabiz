@@ -187,7 +187,7 @@ function stateOf(down: number, known: number): GroupState {
 export function eventsView(
   monitors: Monitor[],
   events: EventRow[],
-  states: Map<number, { ok: boolean; since: number }>,
+  states: Map<number, { ok: boolean }>,
   limit = Number.POSITIVE_INFINITY,
 ): EventView[] {
   const byId = new Map(monitors.map((m) => [m.id, m]))

@@ -412,7 +412,7 @@ Astro.response.headers.set(
         if (dlg.open) return
         var was = (document.querySelector(".hero-s") || {}).textContent
         var seat = mark(document.activeElement)
-        fetch(location.pathname + location.search, { headers: { "x-refresh": "1" } })
+        fetch(location.pathname + location.search)
           .then(function (r) { return r.text() })
           .then(function (html) {
             // Opened while this was in flight: replacing the body now takes
