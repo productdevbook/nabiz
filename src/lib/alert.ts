@@ -24,8 +24,10 @@ function held(seconds: number | null, lang: Lang): string {
       : m > 0
         ? say(m, "unit_m")
         : say(seconds, "unit_s")
-  // The word goes where the language puts it: "after 2h", "{t}后".
-  return ` (${t(lang, "after").replace("{t}", text)})`
+  // The word and its punctuation go where the language puts them: "(after
+  // 2h)", "（2小时后）" — a half-width bracket around Chinese is not what
+  // Chinese writes.
+  return ` ${t(lang, "after").replace("{t}", text)}`
 }
 
 /** Long enough for a channel having a slow minute. The round passes its
