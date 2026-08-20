@@ -43,6 +43,10 @@ the cron was, SQLite where D1 was. `src/server/index.ts` is that entry.
     bun run start        run the server target from a checkout
     bun run deploy       astro build + wrangler deploy -c dist/server/wrangler.json
 
+Never pipe `bun run check` — into `tail`, `head` or anything else. The
+exit status of a pipeline is the last command's, so a failing check reads
+as success; two red commits reached main that way.
+
 The local D1 lives under `.wrangler/state/`; create it once with
 `bunx wrangler d1 execute nabiz --local --file schema.sql`.
 
