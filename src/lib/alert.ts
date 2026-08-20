@@ -17,10 +17,26 @@ function held(seconds: number | null, lang: Lang): string {
   return ` (${t(lang, "after")} ${h > 0 ? `${hours} ${mins}` : mins})`
 }
 
-/** Says what changed, wherever the operator asked to hear it. Best-effort:
- *  a paging channel being down must not take the probing down with it. */
-export async function alert(env: AlertEnv, changes: StateChange[], lang: Lang): Promise<void> {
-  if (changes.length === 0) return
+/** Long enough for a channel having a slow minute, short enough that it
+ *  cannot hold the round past the next one. */
+const CHANNEL_MS = 10_000
+
+/** Best-effort, and loud about it: a paging channel being down must not
+ *  take the probing down with it, but a page that failed to page anybody
+ *  must not do it in silence either. Returns how many channels refused. */
+async function to(what: string, sending: Promise<Response>): Promise<boolean> {
+  try {
+    const response = await sending
+    if (response.ok) return true
+    console.error(`[nabiz] ${what} refused the alert with ${response.status}`)
+  } catch (error) {
+    console.error(`[nabiz] ${what} did not take the alert:`, error)
+  }
+  return false
+}
+
+export async function alert(env: AlertEnv, changes: StateChange[], lang: Lang): Promise<number> {
+  if (changes.length === 0) return 0
 
   const lines = changes.map((c) =>
     c.ok
@@ -29,27 +45,36 @@ export async function alert(env: AlertEnv, changes: StateChange[], lang: Lang): 
   )
   const text = lines.join("\n")
 
-  const sends: Promise<unknown>[] = []
+  const sends: Promise<boolean>[] = []
   if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
     sends.push(
-      fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ chat_id: env.TELEGRAM_CHAT_ID, text }),
-      }).catch(() => {}),
+      to(
+        "telegram",
+        fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ chat_id: env.TELEGRAM_CHAT_ID, text }),
+          signal: AbortSignal.timeout(CHANNEL_MS),
+        }),
+      ),
     )
   }
   if (env.ALERT_WEBHOOK_URL) {
     sends.push(
-      fetch(env.ALERT_WEBHOOK_URL, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          text,
-          changes: changes.map((c) => ({ slug: c.monitor.slug, name: c.monitor.name, ok: c.ok })),
+      to(
+        "the webhook",
+        fetch(env.ALERT_WEBHOOK_URL, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            text,
+            changes: changes.map((c) => ({ slug: c.monitor.slug, name: c.monitor.name, ok: c.ok })),
+          }),
+          signal: AbortSignal.timeout(CHANNEL_MS),
         }),
-      }).catch(() => {}),
+      ),
     )
   }
-  await Promise.allSettled(sends)
+  const answers = await Promise.all(sends)
+  return answers.filter((ok) => !ok).length
 }

@@ -26,6 +26,8 @@ function monitor(over: Partial<Monitor> = {}): Monitor {
   }
 }
 
+const downNow = (list: Monitor[]) => new Map(list.map((m) => [m.id, { ok: false, since: 0 }]))
+
 function data(monitors: Monitor[], states: [number, boolean][]): PageData {
   return {
     monitors,
@@ -59,7 +61,7 @@ describe("grouped monitors are counted, never listed", () => {
 
   test("events from grouped members speak under the group's name", () => {
     const a = monitor({ grouped: 1, group_name: "Hosted", name: "secret-a" })
-    const view = eventsView([a], [{ monitor_id: a.id, at: 1, ok: 0 }])
+    const view = eventsView([a], [{ monitor_id: a.id, at: 1, ok: 0 }], downNow([a]))
     expect(view[0]?.label).toBe("Hosted")
   })
 })
@@ -264,29 +266,86 @@ describe("a row that says it is grouped is never published by name", () => {
 
   test("neither do its events", () => {
     const a = monitor({ grouped: 1, group_name: null, name: "secret-a" })
-    const view = eventsView([a], [{ monitor_id: a.id, at: 5, ok: 0 }])
+    const view = eventsView([a], [{ monitor_id: a.id, at: 5, ok: 0 }], downNow([a]))
     expect(view.map((e) => e.label)).toEqual([UNNAMED_GROUP])
   })
 
   test("one host going down is one line, not one line per customer", () => {
-    // A round writes every member's event at the same millisecond; five
-    // identical lines are a customer count read off the page.
+    // Five members, five events; the page says the group went down once.
     const members = [1, 2, 3, 4, 5].map(() =>
       monitor({ grouped: 1, group_name: "Hosted sites", name: "secret" }),
     )
-    const events = members.map((m) => ({ monitor_id: m.id, at: 1234, ok: 0 }))
-    const view = eventsView(members, events)
-    expect(view).toEqual([{ label: "Hosted sites", at: 1234, ok: false }])
+    const events = members.map((m, i) => ({ monitor_id: m.id, at: 1000 + i, ok: 0 }))
+    const view = eventsView(members, events.toReversed(), downNow(members))
+    expect(view).toEqual([{ label: "Hosted sites", at: 1002, ok: false }])
   })
 
-  test("two rounds are still two lines", () => {
-    const members = [1, 2].map(() => monitor({ grouped: 1, group_name: "Hosted sites" }))
-    const view = eventsView(members, [
-      { monitor_id: members[0]?.id ?? 0, at: 20, ok: 0 },
-      { monitor_id: members[1]?.id ?? 0, at: 20, ok: 0 },
-      { monitor_id: members[0]?.id ?? 0, at: 10, ok: 1 },
-    ])
-    expect(view.map((e) => e.at)).toEqual([20, 10])
+  test("members falling in different rounds is still one line", () => {
+    // The old collapse only joined members that fell in the same round, so
+    // two customers on two afternoons printed two lines — which is two
+    // customers, counted off the page.
+    const [a, b] = [1, 2].map(() => monitor({ grouped: 1, group_name: "Hosted sites" }))
+    const view = eventsView(
+      [a as Monitor, b as Monitor],
+      [
+        { monitor_id: (b as Monitor).id, at: 9_030, ok: 0 },
+        { monitor_id: (a as Monitor).id, at: 9_020, ok: 0 },
+      ],
+      downNow([a as Monitor, b as Monitor]),
+    )
+    expect(view).toEqual([{ label: "Hosted sites", at: 9_020, ok: false }])
+  })
+
+  test("one member of five is the group's weather, not its news", () => {
+    // The row says "partly up"; a line underneath saying "down" would
+    // contradict the row above it.
+    const members = [1, 2, 3, 4, 5].map(() => monitor({ grouped: 1, group_name: "Hosted sites" }))
+    const states = new Map(
+      members.map(
+        (m, i) => [m.id, { ok: i > 0, since: 0 }] as [number, { ok: boolean; since: number }],
+      ),
+    )
+    const view = eventsView(members, [{ monitor_id: members[0]?.id ?? 0, at: 5, ok: 0 }], states)
+    expect(view).toEqual([])
+  })
+
+  test("a group that comes all the way back says so once", () => {
+    const members = [1, 2, 3].map(() => monitor({ grouped: 1, group_name: "Hosted sites" }))
+    const up = new Map(members.map((m) => [m.id, { ok: true, since: 0 }]))
+    // Newest first: everyone recovered, having all been down.
+    const view = eventsView(
+      members,
+      [
+        { monitor_id: members[2]?.id ?? 0, at: 40, ok: 1 },
+        { monitor_id: members[1]?.id ?? 0, at: 30, ok: 1 },
+        { monitor_id: members[0]?.id ?? 0, at: 20, ok: 1 },
+        { monitor_id: members[0]?.id ?? 0, at: 10, ok: 0 },
+      ],
+      up,
+    )
+    const recoveries = view.filter((e) => e.ok)
+    expect(recoveries.length).toBe(1)
+    expect(recoveries[0]?.at).toBe(40)
+  })
+
+  test("a monitor speaking for itself is untouched", () => {
+    const api = monitor({ name: "API" })
+    const view = eventsView(
+      [api],
+      [
+        { monitor_id: api.id, at: 20, ok: 1 },
+        { monitor_id: api.id, at: 10, ok: 0 },
+      ],
+      new Map([[api.id, { ok: true, since: 0 }]]),
+    )
+    expect(view.map((e) => e.ok)).toEqual([true, false])
+  })
+
+  test("the limit counts lines the page shows, not rows the store read", () => {
+    const api = monitor({ name: "API" })
+    const events = [50, 40, 30, 20, 10].map((at, i) => ({ monitor_id: api.id, at, ok: i % 2 }))
+    const view = eventsView([api], events, new Map([[api.id, { ok: false, since: 0 }]]), 2)
+    expect(view.length).toBe(2)
   })
 })
 

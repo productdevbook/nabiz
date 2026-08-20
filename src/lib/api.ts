@@ -36,7 +36,7 @@ export function statusJson(data: PageData, events: EventRow[]): Response {
       if (r.latency !== null) m.latency_ms = r.latency
       return m
     }),
-    recent_events: eventsView(data.monitors, events).map((e) => ({
+    recent_events: eventsView(data.monitors, events, data.states, 20).map((e) => ({
       monitor: e.label,
       at: new Date(e.at).toISOString(),
       status: e.ok ? "up" : "down",
@@ -117,7 +117,7 @@ export function feed(
   lang: Lang,
 ): Response {
   const entries: { at: number; xml: string }[] = []
-  for (const e of eventsView(data.monitors, events)) {
+  for (const e of eventsView(data.monitors, events, data.states, 50)) {
     const what = e.ok ? t(lang, "recovered") : t(lang, "down")
     entries.push({
       at: e.at,

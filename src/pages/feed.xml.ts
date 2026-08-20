@@ -11,7 +11,7 @@ export const GET: APIRoute = async ({ url }) => {
     url.origin,
     env.TITLE ?? "nabiz",
     await forPage(env.DB, 90),
-    await recentEvents(env.DB, 50),
+    await recentEvents(env.DB, 400),
     await notices(env.DB, 10, lang),
     lang,
   )

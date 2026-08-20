@@ -11,7 +11,9 @@ const lang = langOf(Astro.url.searchParams.get("lang") || env.LANG)
 const title = env.TITLE ?? "nabiz"
 
 const data = await forPage(env.DB, 90)
-const events = await recentEvents(env.DB, 10)
+// Read wide, shown narrow: a group's members write an event each and
+// the view collapses them, so a slice of ten rows could collapse to one.
+const events = await recentEvents(env.DB, 120)
 
 // An agent that asks for JSON gets the JSON, no second request needed.
 const accept = Astro.request.headers.get("accept") ?? ""
@@ -33,7 +35,7 @@ const banner =
 const bannerClass = state === "up" ? "ok" : state === "down" ? "bad" : "meh"
 const openNotices = noticeList.filter((n) => n.resolved_at === null)
 const pastNotices = noticeList.filter((n) => n.resolved_at !== null)
-const eventItems = eventsView(data.monitors, events)
+const eventItems = eventsView(data.monitors, events, data.states, 10)
 const LANGS: Lang[] = ["en", "tr", "de", "es", "fr"]
 
 Astro.response.headers.set("cache-control", "public, max-age=0, s-maxage=15")

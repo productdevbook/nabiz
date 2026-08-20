@@ -21,9 +21,18 @@ export interface ProbeResult {
   ms: number
 }
 
+/** A probe's own timeout, and the round's if it has one: a monitor with a
+ *  generous timeout must not be able to hold the round past the next one. */
+function within(timeout: number, deadline?: AbortSignal): AbortSignal {
+  const own = AbortSignal.timeout(timeout)
+  if (deadline === undefined) return own
+  const any = (AbortSignal as { any?: (list: AbortSignal[]) => AbortSignal }).any
+  return any === undefined ? own : any([own, deadline])
+}
+
 // Redirects are not followed: a 301 where a 200 was promised is a finding,
 // not a detour to take quietly.
-export async function probe(monitor: Monitor): Promise<ProbeResult> {
+export async function probe(monitor: Monitor, deadline?: AbortSignal): Promise<ProbeResult> {
   const started = Date.now()
   try {
     const response = await fetch(monitor.url, {
@@ -32,7 +41,7 @@ export async function probe(monitor: Monitor): Promise<ProbeResult> {
       // Without this a cacheable 200 can come from Cloudflare's cache and
       // mask a real outage — a probe must always reach the origin.
       cache: "no-store",
-      signal: AbortSignal.timeout(monitor.timeout_ms),
+      signal: within(monitor.timeout_ms, deadline),
       headers: { "user-agent": "nabiz (+https://github.com/productdevbook/nabiz)" },
     })
     let ok = response.status === monitor.expect_status
