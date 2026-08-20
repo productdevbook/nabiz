@@ -59,6 +59,7 @@ was answered with, and `reason` when the code does not say it:
 | absent | the code in `last_status` is the reason |
 | `timeout` | nothing answered before `timeout_ms` |
 | `unreachable` | the connection never happened — refused, no such name, or a handshake that failed |
+| `incomplete` | it answered and then stopped: headers arrived, the body did not finish |
 | `body` | the promised status arrived without the words `expect_body` asks for |
 
 `uptime_90d` is a percent, `null` before the first day of data, and

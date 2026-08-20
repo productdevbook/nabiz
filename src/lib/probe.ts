@@ -14,11 +14,11 @@ export interface Monitor {
   position: number
 }
 
-/** Why a probe failed, when the status code does not say it. Three, not
- *  five: a refused connection, a name that does not resolve and a
- *  handshake that fails are one word here because no runtime tells us
- *  them apart in a way both of ours agree on. */
-export type Reason = "timeout" | "unreachable" | "body" | null
+/** Why a probe failed, when the status code does not say it. A refused
+ *  connection, a name that does not resolve and a handshake that fails are
+ *  one word because no runtime tells them apart in a way both of ours
+ *  agree on. `incomplete` is the answer that started and stopped. */
+export type Reason = "timeout" | "unreachable" | "incomplete" | "body" | null
 
 export interface ProbeResult {
   monitor: Monitor
@@ -37,11 +37,35 @@ function within(timeout: number, deadline?: AbortSignal): AbortSignal {
   return any === undefined ? own : any([own, deadline])
 }
 
+/** How much of a body is read before the rest is dropped. A page that
+ *  answers and then never finishes is down however fast its headers were,
+ *  so the body is always read — and an origin that answers with gigabytes
+ *  must not be able to take the process down while it proves that. */
+const BODY_CAP = 64 * 1024
+
+async function firstOf(response: Response, cap: number): Promise<string> {
+  const body = response.body
+  if (body === null) return ""
+  let seen = 0
+  const cut = new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      seen += chunk.byteLength
+      controller.enqueue(chunk)
+      // Enough to answer the question; the rest is the origin's business.
+      if (seen >= cap) controller.terminate()
+    },
+  })
+  return new Response(body.pipeThrough(cut)).text()
+}
+
 // Redirects are not followed: a 301 where a 200 was promised is a finding,
 // not a detour to take quietly.
 export async function probe(monitor: Monitor, deadline?: AbortSignal): Promise<ProbeResult> {
   const started = Date.now()
   const signal = within(monitor.timeout_ms, deadline)
+  // Kept outside the try: an answer that arrived and then stopped is not
+  // the same as no answer, and the catch cannot see it otherwise.
+  let code: number | null = null
   try {
     const response = await fetch(monitor.url, {
       method: monitor.method,
@@ -53,11 +77,12 @@ export async function probe(monitor: Monitor, deadline?: AbortSignal): Promise<P
       headers: { "user-agent": "nabiz (+https://github.com/productdevbook/nabiz)" },
     })
     const answered = response.status === monitor.expect_status
-    // Only read the body when the words in it are part of the promise.
-    const said =
-      answered && monitor.expect_body
-        ? (await response.text()).includes(monitor.expect_body)
-        : answered
+    code = response.status
+    // Always read something: a host that sends headers and then stops is a
+    // host no browser can load, and reading nothing published it as up
+    // with a three-millisecond latency beside it.
+    const body = await firstOf(response, BODY_CAP)
+    const said = answered && monitor.expect_body ? body.includes(monitor.expect_body) : answered
     return {
       monitor,
       ok: said,
@@ -70,13 +95,14 @@ export async function probe(monitor: Monitor, deadline?: AbortSignal): Promise<P
     }
   } catch {
     // Our own signal stopped it, or the connection never happened. Both
-    // runtimes agree on that much and on nothing finer.
+    // runtimes agree on that much and on nothing finer — except that an
+    // answer we had already been given is not "nothing answered".
     return {
       monitor,
       ok: false,
-      status: null,
+      status: code,
       ms: Date.now() - started,
-      reason: signal.aborted ? "timeout" : "unreachable",
+      reason: code !== null ? "incomplete" : signal.aborted ? "timeout" : "unreachable",
     }
   }
 }

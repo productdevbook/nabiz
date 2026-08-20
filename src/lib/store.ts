@@ -175,13 +175,19 @@ export async function recentEvents(db: Db, limit: number): Promise<EventRow[]> {
   // Joined rather than filtered afterwards: a disabled monitor's events are
   // not shown, and taking the limit first let a flapping one nobody watches
   // any more push every visible event off the page.
+  //
+  // Two windows rather than one, because a group's members write an event
+  // each: four hundred of them fill a single window in one round and every
+  // named service's history disappears from the page.
+  const window = `SELECT e.monitor_id, e.at, e.ok FROM events e
+       JOIN monitors m ON m.id = e.monitor_id AND m.enabled = 1
+       WHERE m.grouped = ? ORDER BY e.at DESC LIMIT ?`
   const { results } = await db
     .prepare(
-      `SELECT e.monitor_id, e.at, e.ok FROM events e
-       JOIN monitors m ON m.id = e.monitor_id AND m.enabled = 1
-       ORDER BY e.at DESC LIMIT ?`,
+      `SELECT monitor_id, at, ok FROM (${window}) UNION ALL
+       SELECT monitor_id, at, ok FROM (${window}) ORDER BY at DESC`,
     )
-    .bind(limit)
+    .bind(0, limit, 1, limit)
     .all<EventRow>()
   return results
 }
@@ -220,11 +226,25 @@ interface Held {
 // probes. The database handle is already pinned across both
 // (src/server/env.ts); what the page remembers has to be pinned the same
 // way, or the round forgets on a map the render never reads.
-const across = globalThis as { nabizPage?: WeakMap<Db, Held>; nabizWrote?: { n: number } }
+const across = globalThis as {
+  nabizPage?: WeakMap<Db, Held>
+  nabizWrote?: { n: number }
+  nabizHold?: { ms: number }
+}
 const recent = (across.nabizPage ??= new WeakMap<Db, Held>())
 // Counted, not just cleared: a read that began before a write and finished
 // after it would otherwise store what it saw halfway through.
 const writes = (across.nabizWrote ??= { n: 0 })
+
+/** How long a deployment holds it, when it knows better than the default.
+ *  A server invalidates on every round, so it can hold until then; on
+ *  Cloudflare the cron may run in an isolate that never touches this copy,
+ *  and fifteen seconds is the only bound there is. */
+const hold = (across.nabizHold ??= { ms: PAGE_MS })
+
+export function holdFor(ms: number): void {
+  hold.ms = Math.max(1_000, ms)
+}
 
 /** Called by every write: what the page says next has to include it. */
 export function forget(db: Db): void {
@@ -234,7 +254,7 @@ export function forget(db: Db): void {
 
 export async function forPage(db: Db, window: number): Promise<PageData> {
   const held = recent.get(db)
-  if (held !== undefined && held.window === window && Date.now() - held.at < PAGE_MS)
+  if (held !== undefined && held.window === window && Date.now() - held.at < hold.ms)
     return held.data
   const began = writes.n
   const data = await read(db, window)

@@ -15,8 +15,8 @@ From [`schema.sql`](../schema.sql):
 | `url` | — | what is fetched |
 | `method` | `GET` | any HTTP method |
 | `expect_status` | `200` | anything else is a failure; redirects are not followed |
-| `timeout_ms` | `10000` | a probe that takes longer has failed — as does one still waiting when the round's own deadline arrives, which is three quarters of the interval |
-| `expect_body` | `NULL` | when set, a 200 without these words is still a failure |
+| `timeout_ms` | `10000` | a probe that takes longer has failed — as does one still waiting when the round's own deadline arrives, which is three quarters of the interval. The body counts: a host that sends headers and then stops is down, however fast the headers were |
+| `expect_body` | `NULL` | when set, a 200 without these words is still a failure. A substring, anywhere in the first 64 KB — pick words a failure page would not also contain |
 | `fail_threshold` | `2` | consecutive failures before a watched monitor is called down; the very first probe is believed at once, since there is no state to keep |
 | `group_name` | `NULL` | the heading it appears under |
 | `grouped` | `0` | `1` shows it only inside its group's tally |
@@ -56,9 +56,10 @@ one only the cluster can resolve, which is the point:
 
 A monitor with `grouped = 1` is never named on the page, in the API or in
 the feed. Its group is one row that says how it is and nothing else:
-degraded while some members are unreachable, down once half or more are —
-so a group of two is down the moment either of them is, and the "one site
-of five" reading starts at three members.
+degraded while some members are unreachable, down once half or more are
+**and never fewer than two**. One customer's outage is that customer's,
+whatever fraction of the group they are, so a group of two says degraded
+when one of them is dark and a group of one never says down at all.
 Not how many members there are, not which — a public status page does not
 have to be a public customer list.
 

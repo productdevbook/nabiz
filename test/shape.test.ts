@@ -62,9 +62,15 @@ describe("grouped monitors are counted, never listed", () => {
   })
 
   test("events from grouped members speak under the group's name", () => {
-    const a = monitor({ grouped: 1, group_name: "Hosted", name: "secret-a" })
-    const view = eventsView([a], [{ monitor_id: a.id, at: 1, ok: 0 }], downNow([a]))
+    const [a, b] = [1, 2].map(() => monitor({ grouped: 1, group_name: "Hosted", name: "secret" }))
+    const both = [a as Monitor, b as Monitor]
+    const view = eventsView(
+      both,
+      both.map((m) => ({ monitor_id: m.id, at: 1, ok: 0 })),
+      downNow(both),
+    )
     expect(view[0]?.label).toBe("Hosted")
+    expect(JSON.stringify(view)).not.toContain("secret")
   })
 })
 
@@ -274,8 +280,12 @@ describe("a row that says it is grouped is never published by name", () => {
   })
 
   test("neither do its events", () => {
-    const a = monitor({ grouped: 1, group_name: null, name: "secret-a" })
-    const view = eventsView([a], [{ monitor_id: a.id, at: 5, ok: 0 }], downNow([a]))
+    const both = [1, 2].map(() => monitor({ grouped: 1, group_name: null, name: "secret" }))
+    const view = eventsView(
+      both,
+      both.map((m) => ({ monitor_id: m.id, at: 5, ok: 0 })),
+      downNow(both),
+    )
     expect(view.map((e) => e.label)).toEqual([UNNAMED_GROUP])
   })
 
@@ -292,7 +302,9 @@ describe("a row that says it is grouped is never published by name", () => {
   test("members falling in different rounds is still one line", () => {
     // The old collapse only joined members that fell in the same round, so
     // two customers on two afternoons printed two lines — which is two
-    // customers, counted off the page.
+    // customers, counted off the page. The line is drawn where the group
+    // crossed, which is when the second one fell: before that it was one
+    // customer's problem, and the group does not publish those.
     const [a, b] = [1, 2].map(() => monitor({ grouped: 1, group_name: "Hosted sites" }))
     const view = eventsView(
       [a as Monitor, b as Monitor],
@@ -302,7 +314,7 @@ describe("a row that says it is grouped is never published by name", () => {
       ],
       downNow([a as Monitor, b as Monitor]),
     )
-    expect(view).toEqual([{ label: "Hosted sites", at: 9_020, ok: false }])
+    expect(view).toEqual([{ label: "Hosted sites", at: 9_030, ok: false }])
   })
 
   test("one member of five is the group's weather, not its news", () => {
@@ -445,5 +457,37 @@ describe("position places a group as well as a monitor", () => {
     // rows() takes the order the store gives it, which is by position.
     const list = rows(data([...members, api], []))
     expect(list.map((r) => r.name)).toEqual(["Hosted sites", "API"])
+  })
+})
+
+describe("a group never publishes one customer's outage as its own", () => {
+  test("one of two down is the group being troubled, not the group being down", () => {
+    const both = [1, 2].map(() => monitor({ grouped: 1, group_name: "Hosted sites" }))
+    const list = rows(
+      data(both, [
+        [both[0]?.id ?? 0, false],
+        [both[1]?.id ?? 0, true],
+      ]),
+    )
+    expect(list[0]?.ok).toBe(false)
+    expect(list[0]?.partial).toBe(true)
+  })
+
+  test("both of two down is the machine's problem and says so", () => {
+    const both = [1, 2].map(() => monitor({ grouped: 1, group_name: "Hosted sites" }))
+    const list = rows(
+      data(both, [
+        [both[0]?.id ?? 0, false],
+        [both[1]?.id ?? 0, false],
+      ]),
+    )
+    expect(list[0]?.partial).toBe(false)
+    expect(list[0]?.ok).toBe(false)
+  })
+
+  test("a group of one says troubled, whatever happens to it", () => {
+    const only = monitor({ grouped: 1, group_name: "Hosted sites" })
+    const list = rows(data([only], [[only.id, false]]))
+    expect(list[0]?.partial).toBe(true)
   })
 })

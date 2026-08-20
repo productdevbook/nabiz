@@ -9,6 +9,8 @@ import { fileURLToPath } from "node:url"
 
 import { preflight } from "../lib/api.ts"
 import { migrate } from "../lib/migrate.ts"
+import { WINDOW } from "../lib/render.ts"
+import { forPage, holdFor } from "../lib/store.ts"
 import { tick } from "../lib/tick.ts"
 import { clientAddress, trustedHops } from "./address.ts"
 import { db, DB_PATH, env } from "./env.ts"
@@ -124,6 +126,11 @@ async function main(): Promise<void> {
   // the write-ahead log and the shared-memory file inherit it.
   process.umask(0o077)
 
+  // Every round invalidates what the page remembers, so it can be held
+  // until the next one rather than for a fixed window — a page nobody has
+  // asked for in a while should not make the next reader wait.
+  holdFor(interval * 2)
+
   // Before the database is opened, not after: SQLite copies the database
   // file's mode onto the write-ahead log when it creates it, so a file that
   // arrived by some other route — a copy out of D1, a restored backup —
@@ -205,6 +212,10 @@ async function main(): Promise<void> {
       // The round has to end before the next one is due, whatever "due"
       // was set to.
       await tick(db, env, sweep, Math.max(2_000, Math.round(interval * 0.75)))
+      // Rebuilt here rather than by whoever asks first: the read is
+      // proportional to what is watched, and paying for it inside a request
+      // is how long that work takes, visible from outside.
+      await forPage(db, WINDOW).catch(() => {})
       // Only a round that finished counts as the hour's sweep; the one
       // that failed on a full disk is the one that needed to prune.
       if (sweep) swept = Date.now()

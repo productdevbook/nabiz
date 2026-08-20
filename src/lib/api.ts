@@ -58,9 +58,12 @@ export function statusJson(data: PageData, events: EventRow[]): Response {
       // hosts that answered is a different claim from saying nothing.
       if (r.ok === false && r.code !== undefined) {
         m.last_status = r.code
-        // Why, when the code does not say it: "timeout", "unreachable" or
-        // "body" for a promised status with the wrong words in it.
-        if (r.reason !== null && r.reason !== undefined) m.reason = r.reason
+        // Why, when the code does not say it — and only the words this
+        // document promises: the column is written by one function today,
+        // and an API that publishes an enum should not publish whatever it
+        // finds in a row.
+        if (r.reason !== null && r.reason !== undefined && REASONS.has(r.reason))
+          m.reason = r.reason
       }
       return m
     }),
@@ -291,6 +294,8 @@ async function jsonBody<T>(request: Request): Promise<T | null> {
     return null
   }
 }
+
+const REASONS: ReadonlySet<string> = new Set(["timeout", "unreachable", "incomplete", "body"])
 
 const SEVERITIES = new Set(["info", "maintenance", "degraded", "outage"])
 

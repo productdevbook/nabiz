@@ -29,6 +29,12 @@ export interface Row {
  *  three of five is the machine's, and the page should say which. */
 export const GROUP_OUTAGE = 0.5
 
+/** And never one. Half of a group of two is one customer, so the fraction
+ *  alone would publish that customer's outage as the group's — which is
+ *  the thing a group exists not to do. Two sites failing together is the
+ *  smallest thing that can be about the machine rather than about a site. */
+export const GROUP_LEAST = 2
+
 /** What a group with no name of its own is called. A row that says it is
  *  grouped is never published by name, so a missing group name cannot be
  *  allowed to fall back to the monitor's — that is the one leak the column
@@ -137,7 +143,7 @@ function shape(data: PageData): Row[] {
         // Down only once enough of the group is unreachable to be the
         // machine's problem rather than one site's.
         ok: known === 0 ? null : downs === 0,
-        partial: known > 0 && downs > 0 && downs / known < GROUP_OUTAGE,
+        partial: known > 0 && downs > 0 && !isDown(downs, known),
         days: medianDays(members.map((m) => data.days.get(m.id) ?? [])),
         latency: null,
         spark: null,
@@ -191,7 +197,7 @@ export interface EventView {
  *  while the rest hold, a member returning while others are still dark —
  *  is the group's weather, and the row already says "partly up". */
 function isDown(down: number, known: number): boolean {
-  return known > 0 && down / known >= GROUP_OUTAGE
+  return known > 0 && down >= GROUP_LEAST && down / known >= GROUP_OUTAGE
 }
 
 export function eventsView(

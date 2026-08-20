@@ -126,7 +126,10 @@ export function serviceRow(r: Row, lang: Lang): string {
   const said =
     r.ok !== false || r.code === undefined
       ? null
-      : r.reason === "timeout" || r.reason === "unreachable" || r.reason === "body"
+      : r.reason === "timeout" ||
+          r.reason === "unreachable" ||
+          r.reason === "incomplete" ||
+          r.reason === "body"
         ? t(lang, `why_${r.reason}`)
         : r.code === null
           ? t(lang, "no_answer")
