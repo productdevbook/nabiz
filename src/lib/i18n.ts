@@ -332,6 +332,11 @@ export const NAMES: Record<Lang, string> = {
   "zh-CN": "简体中文",
 }
 
-export function langOf(value: string | undefined): Lang {
-  return value !== undefined && known.has(value) ? (value as Lang) : "en"
+/** The language a value asks for, or the one to fall back to. An empty
+ *  `?lang=`, an unknown code, `EN` in capitals: none of them is one of the
+ *  six, and answering English to a deployment that speaks Turkish because
+ *  somebody typed a language that does not exist is not an answer. Every
+ *  caller that has a configured language passes it. */
+export function langOf(value: string | null | undefined, fallback: Lang = "en"): Lang {
+  return value !== null && value !== undefined && known.has(value) ? (value as Lang) : fallback
 }

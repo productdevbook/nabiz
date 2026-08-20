@@ -7,7 +7,7 @@ import { WINDOW } from "../lib/render.ts"
 import { EVENT_ROWS, forPage, notices, recentEvents } from "../lib/store.ts"
 
 export const GET: APIRoute = async ({ url }) => {
-  const lang = langOf(url.searchParams.get("lang") || env.LANG)
+  const lang = langOf(url.searchParams.get("lang"), langOf(env.LANG))
   return feed(
     url.origin,
     env.TITLE ?? "nabiz",
