@@ -311,12 +311,19 @@
    * wraps and the time takes the line under it. Without this the time ran
    * past a panel that hides its overflow and was simply gone: at 320px in
    * German, 116 pixels of a 122-pixel timestamp. */
-  @media (max-width: 480px) {
+  @media (max-width: 600px) {
     .events li {
       @apply flex-wrap;
     }
     .events time {
       @apply w-full ps-10;
+    }
+    /* The name is what the row is for, and it was the one element left out
+     * of this: as a flex item with no min-width it cannot shrink, so the
+     * panel cut it instead. */
+    .events b {
+      @apply min-w-0;
+      overflow-wrap: anywhere;
     }
   }
   .chip {
@@ -492,6 +499,13 @@
    * is why the strip is blank — so it grows by more than its share. */
   .bars i:not(.ok):not(.meh):not(.bad):hover {
     transform: scaleY(3);
+  }
+  /* Written with the same three classes, because the guard below is one
+   * class and would lose to it whatever the order. */
+  @media (prefers-reduced-motion: reduce) {
+    .bars i:not(.ok):not(.meh):not(.bad):hover {
+      transform: none;
+    }
   }
   @media (prefers-reduced-motion: reduce) {
     .bars i,
