@@ -44,6 +44,10 @@ test("every route that exists is in the docs' endpoint table", () => {
   const listed = new Set([...api.matchAll(/^\|\s*`(\/[^`]*)`/gm)].map((m) => m[1] as string))
   const undocumented = routePaths().filter((p) => !skip.has(p) && !listed.has(p))
   expect(undocumented).toEqual([])
+  // And the other direction: a row in that table for a route that does not
+  // exist is a documented 404.
+  const invented = [...listed].filter((p) => !has(routeFile(p)))
+  expect(invented).toEqual([])
 })
 
 test("every environment variable the code reads is in docs/configuration.md", () => {
@@ -126,15 +130,28 @@ test("schema.sql creates every table before it creates any index", () => {
   // an index over a new column above the notices table, so a database
   // upgrading from v1.0.0 lost the table rather than gained the index.
   const sql = read("schema.sql")
-  const lastTable = sql.lastIndexOf("CREATE TABLE")
-  const firstIndex = sql.indexOf("CREATE INDEX")
-  expect(firstIndex).toBeGreaterThan(lastTable)
+  // By keyword, not by substring: `create index` in lower case, and
+  // `CREATE UNIQUE INDEX`, both walked around the first version of this.
+  const at = (re: RegExp) => [...sql.matchAll(re)].map((m) => m.index as number)
+  const tables = at(/^\s*create\s+table\b/gim)
+  const indexes = at(/^\s*create\s+(unique\s+)?index\b/gim)
+  expect(tables.length).toBeGreaterThan(3)
+  expect(indexes.length).toBeGreaterThan(3)
+  expect(Math.min(...indexes) > Math.max(...tables)).toBe(true)
 })
 
 test("what the code publishes as its version is what the release is", () => {
   // The image tag comes from the git tag and the header comes from this
   // constant; nothing in the build compares them, so the workflow does.
   const release = read(".github/workflows/release.yml")
-  expect(release.includes("package.json")).toBe(true)
-  expect(/bun run check/.test(release)).toBe(true)
+  const gate = release.indexOf("the tag, the package and the header agree")
+  const check = release.indexOf("bun run check")
+  const push = release.indexOf("push: true")
+  expect(gate).toBeGreaterThan(-1)
+  expect(check).toBeGreaterThan(-1)
+  expect(push).toBeGreaterThan(-1)
+  // Before the push, or they guard nothing: the first version of this rule
+  // asked only that the two strings appeared somewhere in the file, and
+  // moving `bun run check` to the last step of the job passed it.
+  expect(gate < push && check < push).toBe(true)
 })

@@ -13,13 +13,17 @@ const LIB = walk("src/lib", ".ts")
 
 test("an empty ?lang= is not an answer on any surface", () => {
   // `get()` returns "" for `?lang=`, and "" ?? x is "" — so the fallback
-  // the deployment configured is thrown away. `||` or `has()`, never `??`.
+  // the deployment configured is thrown away. `||`, never `??`, and the
+  // exemption for `?? undefined` was the one that survived: it feeds ""
+  // to langOf, which answers English to a page that speaks Turkish.
   const wrong: string[] = []
   for (const f of PAGES)
-    for (const m of read(f).matchAll(
-      /searchParams\.get\(\s*"lang"\s*\)\s*\?\?\s*(?!undefined)(\S+)/g,
-    ))
+    for (const m of read(f).matchAll(/searchParams\.get\(\s*"lang"\s*\)\s*\?\?/g))
       wrong.push(`${f}: ${m[0]}`)
+  // And the question itself is not enough: asking `has("lang")` says a
+  // language was named, not that one was given.
+  for (const f of PAGES)
+    if (/searchParams\.has\(\s*"lang"\s*\)/.test(read(f))) wrong.push(`${f}: has("lang")`)
   expect(wrong).toEqual([])
 })
 
@@ -30,7 +34,7 @@ test("every read endpoint answers a page somewhere else", () => {
   const wrong: string[] = []
   for (const f of ANSWERS) {
     const text = read(f)
-    for (const call of callsTo(text, "new Response")) {
+    for (const call of [...callsTo(text, "new Response"), ...callsTo(text, "Response.json")]) {
       // A response with no headers at all carries no CORS either; not
       // having any is not an exemption from having that one.
       // robots.txt is read by crawlers, never by a script in a page.
@@ -48,10 +52,12 @@ test("the page, the JSON and the feed read the same width of events", () => {
   const wrong: string[] = []
   for (const f of [...PAGES, ...LIB])
     for (const call of callsTo(read(f), "recentEvents")) {
-      const arg = call.split(",")[1] ?? ""
+      const arg = (call.split(",")[1] ?? "").trim().replace(/\)$/, "")
       // The declaration is not a call site.
       if (arg.includes(":")) continue
-      if (!arg.includes("EVENT_ROWS")) wrong.push(`${f}: recentEvents(${call.slice(1, 40)}`)
+      // The constant itself, not an expression mentioning it: `EVENT_ROWS
+      // * 3` is three different widths again.
+      if (arg !== "EVENT_ROWS") wrong.push(`${f}: recentEvents(…, ${arg})`)
     }
   expect(wrong).toEqual([])
 })
@@ -66,9 +72,18 @@ test("nothing this process sends out follows a redirect or waits forever", () =>
   // the server entry or a route sends just as far. The .astro file is not
   // here on purpose — its fetches are the inline script's, running in the
   // reader's browser, where following a redirect is the right thing.
-  for (const f of [...LIB, ...walk("src/server", ".ts"), ...walk("src/pages", ".ts")]) {
+  for (const f of [
+    ...LIB,
+    ...walk("src/server", ".ts"),
+    ...walk("src/pages", ".ts"),
+    // The Cloudflare entry point, which is at src/ and was in no list.
+    "src/worker.ts",
+  ]) {
     const text = read(f)
-    for (const m of text.matchAll(/\bfetch\s*\(/g)) {
+    for (const m of text.matchAll(/(?<![.\w])fetch\s*\(/g)) {
+      // The worker's own `async fetch(request, env, ctx)` is the entry
+      // point, not a call: what it answers is nothing this process sends.
+      if (/\b(async|function)\s+$/.test(text.slice(Math.max(0, m.index - 12), m.index))) continue
       const call = callAt(text, m.index + m[0].length - 1)
       if (!/redirect:\s*"(manual|error)"/.test(call)) wrong.push(`${f}: follows redirects`)
       if (!/\bsignal\b\s*[,:]/.test(call)) wrong.push(`${f}: no deadline`)

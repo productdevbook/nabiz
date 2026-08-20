@@ -77,7 +77,7 @@ test("anything remembered across requests is pinned across both copies", () => {
     // Every shape a module-level map can be written in: exported or not,
     // annotated or not, with or without type arguments.
     for (const m of text.matchAll(
-      /^(?:export\s+)?(?:const|let)\s+\w+(?:\s*:[^=\n]+)?\s*=\s*[^=\n]*?new (Weak)?Map\b/gm,
+      /^(?:export\s+)?(?:const|let)\s+\w+(?:\s*:[^=\n]+)?\s*=[\s\S]{0,200}?new (Weak)?Map\b/gm,
     ))
       found.push(`${f}:${m[1] === "Weak" ? "Weak" : ""}Map`)
   }
