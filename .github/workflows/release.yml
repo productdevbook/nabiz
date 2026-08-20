@@ -20,6 +20,22 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
+      # A tag can be put on any commit. Two things have to be true of this
+      # one before an image goes out under its name: that the version it
+      # will answer with is the version being released, and that the suite
+      # passes — the smoke test below only asks whether it answers at all.
+      - name: the tag, the package and the header agree
+        if: github.ref_type == 'tag'
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(node -p "require('./package.json').version")
+          src=$(grep -oP 'VERSION = "\K[^"]+' src/lib/version.ts)
+          echo "tag=$tag package.json=$pkg src=$src"
+          test "$tag" = "$pkg"
+          test "$tag" = "$src"
+      - run: bun install --frozen-lockfile
+      - run: bun run check
       - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0

@@ -8,6 +8,7 @@ import { expect, test } from "bun:test"
 import { callAt, callsTo, read, walk } from "./source.ts"
 
 const PAGES = [...walk("src/pages", ".ts"), ...walk("src/pages", ".astro")]
+const ANSWERS = [...PAGES, "src/lib/api.ts"]
 const LIB = walk("src/lib", ".ts")
 
 test("an empty ?lang= is not an answer on any surface", () => {
@@ -27,10 +28,11 @@ test("every read endpoint answers a page somewhere else", () => {
   // answers 204 to is a promise the real answer keeps too — including the
   // refusals, which are the answers a browser most needs to read.
   const wrong: string[] = []
-  for (const f of PAGES) {
+  for (const f of ANSWERS) {
     const text = read(f)
     for (const call of callsTo(text, "new Response")) {
-      if (!/headers\s*:/.test(call)) continue
+      // A response with no headers at all carries no CORS either; not
+      // having any is not an exemption from having that one.
       // robots.txt is read by crawlers, never by a script in a page.
       if (f.endsWith("robots.txt.ts")) continue
       if (/access-control-allow-origin|\.\.\.CORS/.test(call)) continue
@@ -60,7 +62,11 @@ test("nothing this process sends out follows a redirect or waits forever", () =>
   // to follow one since the beginning; the alert path did the opposite
   // for four releases.
   const wrong: string[] = []
-  for (const f of LIB) {
+  // Everything this process sends, not only the library: a fetch added to
+  // the server entry or a route sends just as far. The .astro file is not
+  // here on purpose — its fetches are the inline script's, running in the
+  // reader's browser, where following a redirect is the right thing.
+  for (const f of [...LIB, ...walk("src/server", ".ts"), ...walk("src/pages", ".ts")]) {
     const text = read(f)
     for (const m of text.matchAll(/\bfetch\s*\(/g)) {
       const call = callAt(text, m.index + m[0].length - 1)

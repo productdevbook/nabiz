@@ -39,7 +39,10 @@ test("every route that exists is in the docs' endpoint table", () => {
   // Write endpoints and the page are described in prose elsewhere; the
   // table is for what a reader can GET.
   const skip = new Set(["/api/notice", "/api/notice/resolve", "/"])
-  const undocumented = routePaths().filter((p) => !skip.has(p) && !api.includes(p))
+  // In the table, not merely somewhere in the file: a route mentioned in a
+  // sentence is not a route a reader can find in the list.
+  const listed = new Set([...api.matchAll(/^\|\s*`(\/[^`]*)`/gm)].map((m) => m[1] as string))
+  const undocumented = routePaths().filter((p) => !skip.has(p) && !listed.has(p))
   expect(undocumented).toEqual([])
 })
 
@@ -47,8 +50,12 @@ test("every environment variable the code reads is in docs/configuration.md", ()
   const config = read("docs/configuration.md")
   const names = new Set<string>()
   for (const f of [...walk("src", ".ts"), ...walk("src", ".astro")])
-    for (const m of read(f).matchAll(/(?:process\.)?env\.([A-Z][A-Z_0-9]+)/g))
-      names.add(m[1] as string)
+    // Both ways a name can be read off the environment: a name that is
+    // only ever reached by bracket is still a name an operator must set.
+    for (const m of read(f).matchAll(
+      /(?:process\.)?env(?:\.([A-Z][A-Z_0-9]+)|\["([A-Z][A-Z_0-9]+)"\])/g,
+    ))
+      names.add((m[1] ?? m[2]) as string)
   // DB is the D1 binding, named in wrangler.toml, not an environment
   // variable an operator sets.
   names.delete("DB")
@@ -103,10 +110,31 @@ const WORDS: Record<string, number> = {
 
 test("a document that counts its endpoints counts the ones it lists", () => {
   const api = read("docs/api.md")
-  const said = /\b(one|two|three|four|five|six|seven|eight|nine|ten)\s+endpoints\s+to\s+read/i.exec(
-    api,
-  )
-  if (said === null) return
+  // A number written as a digit counts too — spelling it was never the
+  // rule, counting right was.
+  const said =
+    /\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+endpoints\s+to\s+read/i.exec(api)
+  expect(said).not.toBeNull()
+  const word = (said as RegExpExecArray)[1] as string
   const rows = [...api.matchAll(/^\|\s*`(\/[^`]*)`/gm)].length
-  expect(rows).toBe(WORDS[(said[1] as string).toLowerCase()] as number)
+  expect(rows).toBe(WORDS[word.toLowerCase()] ?? Number(word))
+})
+
+test("schema.sql creates every table before it creates any index", () => {
+  // The file is applied to databases that already exist, and one failing
+  // statement takes every statement under it with it: a v3.9.0 file put
+  // an index over a new column above the notices table, so a database
+  // upgrading from v1.0.0 lost the table rather than gained the index.
+  const sql = read("schema.sql")
+  const lastTable = sql.lastIndexOf("CREATE TABLE")
+  const firstIndex = sql.indexOf("CREATE INDEX")
+  expect(firstIndex).toBeGreaterThan(lastTable)
+})
+
+test("what the code publishes as its version is what the release is", () => {
+  // The image tag comes from the git tag and the header comes from this
+  // constant; nothing in the build compares them, so the workflow does.
+  const release = read(".github/workflows/release.yml")
+  expect(release.includes("package.json")).toBe(true)
+  expect(/bun run check/.test(release)).toBe(true)
 })

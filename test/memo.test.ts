@@ -74,7 +74,11 @@ test("anything remembered across requests is pinned across both copies", () => {
   const found: string[] = []
   for (const f of walk("src/lib", ".ts")) {
     const text = read(f)
-    for (const m of text.matchAll(/^(?:const|let)\s+\w+\s*=\s*.*?new (Weak)?Map\s*</gm))
+    // Every shape a module-level map can be written in: exported or not,
+    // annotated or not, with or without type arguments.
+    for (const m of text.matchAll(
+      /^(?:export\s+)?(?:const|let)\s+\w+(?:\s*:[^=\n]+)?\s*=\s*[^=\n]*?new (Weak)?Map\b/gm,
+    ))
       found.push(`${f}:${m[1] === "Weak" ? "Weak" : ""}Map`)
   }
   const unclassified = found.filter((k) => !(k in KNOWN))
@@ -89,15 +93,20 @@ test("the round warms everything a request would otherwise pay for", () => {
   // hides, so a request that pays it publishes that number as latency.
   // The round rebuilds the page itself for exactly that reason — and it
   // has to rebuild all of it, not the database read alone.
+  //
+  // Not guarded on how the memo is written: the first version of this rule
+  // looked for `const shaped = new WeakMap`, the fix it was written for
+  // changed that line to pin the map, and the rule quietly asserted
+  // nothing for a release.
   const beat = read("src/server/index.ts")
-  const memoised = /const shaped = new WeakMap/.test(read("src/lib/shape.ts"))
-  if (!memoised) return
+  const shape = read("src/lib/shape.ts")
+  expect(/\bshaped\b/.test(shape) && /WeakMap<PageData/.test(shape)).toBe(true)
   const warms = [
     /\bforPage\s*\(/.test(beat) ? null : "the round does not warm forPage",
     // And warming it from the process only helps if the memo is the same
     // object the bundle reads: src/server/env.ts pins the handle for this
     // reason, and src/lib/store.ts pins the page for the same one.
-    /globalThis/.test(read("src/lib/shape.ts"))
+    /globalThis/.test(shape)
       ? null
       : "the shaping memo is not pinned across the bundle and the process",
     /\brows\s*\(/.test(beat)
