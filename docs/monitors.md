@@ -81,6 +81,16 @@ went down or came back, never when one member did.
 UPDATE monitors SET enabled = 0 WHERE slug = 'api';
 ```
 
+One thing to do while you are there: a monitor disabled while it is down
+keeps that state, so re-enabling it sends a recovery for an outage nobody
+was watching — with the whole disabled span as its length. Clear the state
+row along with the flag if that would be misleading:
+
+```sql
+UPDATE monitors SET enabled = 0 WHERE slug = 'api';
+DELETE FROM state WHERE monitor_id = (SELECT id FROM monitors WHERE slug = 'api');
+```
+
 The rows stay in the database, but a disabled monitor is gone from the
 page, from `status.json`, from the history, the badge, the feed and the
 events list — `monitors()` reads `WHERE enabled = 1` and everything is

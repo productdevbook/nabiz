@@ -55,4 +55,34 @@ Anything that is not a count is off: unset, `0`, `no`, `off`, `false`.
 Both are optional and best-effort — a paging channel that is down must not
 take the probing down with it. A message is sent when a monitor changes
 state, not for every minute of an outage, and recovery says how long the
-outage held.
+outage held. One request per round per channel, however many monitors
+changed.
+
+The webhook receives:
+
+```json
+{
+  "at": "2026-08-20T04:42:49.405Z",
+  "text": "🔴 API — down",
+  "changes": [
+    { "slug": "api", "name": "API", "group": null, "ok": false, "held_for": null }
+  ]
+}
+```
+
+`held_for` is seconds and is present on a recovery. **`name` is the
+monitor's own name, even for a grouped one** — the page never publishes
+those, and this channel does, because an alert that said only "Hosted
+sites" would not tell you which of forty sites to look at. `group` says
+which group it belongs to so a consumer can decide what to repeat. Point
+`ALERT_WEBHOOK_URL` somewhere private for the same reason.
+
+A redirect is not a delivery: the webhook is called with redirects
+refused, and a 3xx is logged as a refusal. Following one would turn the
+POST into a bodyless GET that answers 200, which is an alert lost in
+silence. Both channels are given a quarter of the round's time and no
+more.
+
+Nothing outside the log records a refused alert. `[nabiz] the webhook
+refused the alert with 500` and the line after it, naming what nobody was
+told, are the only trace.

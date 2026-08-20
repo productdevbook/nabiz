@@ -33,7 +33,22 @@ export async function tick(
   const deadline = AbortSignal.timeout(within)
   const results = await Promise.all(watched.map((m) => probe(m, deadline)))
   const changes = await record(db, results)
-  await alert(env, changes, langOf(env.LANG))
+  // A quarter of the round's budget: a channel that hangs must not cost
+  // the rounds that come after it.
+  const refused = await alert(
+    env,
+    changes,
+    langOf(env.LANG),
+    Math.max(1_000, Math.round(within / 4)),
+  )
+  if (refused > 0)
+    // Which alert was lost, not only that one was: the log is the only
+    // place this is ever said.
+    console.error(
+      `[nabiz] ${refused} channel(s) took no alert; nobody was told about ${changes
+        .map((c) => `${c.monitor.slug} ${c.ok ? "recovered" : "down"}`)
+        .join(", ")}`,
+    )
   if (sweep) await prune(db)
   return changes.length
 }
