@@ -31,7 +31,6 @@ function utcDay(at: number): string {
 export async function record(db: Db, results: ProbeResult[]): Promise<StateChange[]> {
   const now = Date.now()
   const day = utcDay(now)
-  forget(db)
 
   const writes: Stmt[] = []
   for (const r of results) {
@@ -119,7 +118,14 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
     }
   }
 
-  if (stateWrites.length > 0) await db.batch(stateWrites)
+  try {
+    if (stateWrites.length > 0) await db.batch(stateWrites)
+  } finally {
+    // After the writes, never before: a render that landed between the
+    // checks and the state would otherwise have cached half a round and
+    // kept it for the whole window.
+    forget(db)
+  }
   return changes
 }
 
@@ -133,7 +139,6 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
  *  it. Disabling is what keeps a history safely; deleting is what needs
  *  this sweep to have run in between. */
 export async function prune(db: Db): Promise<void> {
-  forget(db)
   const now = Date.now()
   const before = (days: number) => now - days * 24 * 3600 * 1000
   const orphans = (table: string) =>
@@ -149,6 +154,7 @@ export async function prune(db: Db): Promise<void> {
     orphans("events"),
     orphans("state"),
   ])
+  forget(db)
 }
 
 export interface EventRow {
@@ -202,7 +208,19 @@ export interface PageData {
  *  written. */
 const PAGE_MS = 15_000
 
-const recent = new WeakMap<Db, { at: number; window: number; data: PageData }>()
+interface Held {
+  at: number
+  window: number
+  data: PageData
+}
+
+// This module is instantiated twice in a server: once inside the Astro
+// bundle that renders the page, once from source in the process that
+// probes. The database handle is already pinned across both
+// (src/server/env.ts); what the page remembers has to be pinned the same
+// way, or the round forgets on a map the render never reads.
+const across = globalThis as { nabizPage?: WeakMap<Db, Held> }
+const recent = (across.nabizPage ??= new WeakMap<Db, Held>())
 
 /** Called by every write: what the page says next has to include it. */
 export function forget(db: Db): void {

@@ -13,9 +13,11 @@ that already exists**, so re-running it is not an upgrade. Run whichever of
 these your D1 database is missing.
 
 If you skip them, the deployment does not stop: it starts, `/health`
-answers 204, every page and every endpoint returns 500 with
-`no such column: …` in the log, and each probe round writes its checks and
-then fails before the state — so pruning and alerting stop too.
+answers 204, and everything that reads the state — the page, `status.json`,
+`history.json`, the feed, the badge — returns 500 with `no such column: …`
+in the log, while `notices.json`, `llms.txt` and `robots.txt` carry on
+answering. Each probe round writes its checks and then fails before the
+state, so pruning and alerting stop too.
 
 ```sh
 # v0.1 → v0.2

@@ -23,9 +23,6 @@ That first command creates what is missing. It is not an upgrade path: a
 column added to an existing table needs its own `ALTER`, and those are in
 [docs/UPGRADING.md](UPGRADING.md).
 
-```sh
-```
-
 `bun run deploy` builds first and deploys `dist/server/wrangler.json`; the
 `wrangler.toml` in the repository is the source of the settings that end up
 there.

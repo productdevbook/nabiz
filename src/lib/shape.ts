@@ -8,10 +8,11 @@ import type { DayRow, EventRow, PageData } from "./store.ts"
 export interface Row {
   name: string
   ok: boolean | null
-  /** What the last probe answered, when there is one and it is a monitor
-   *  rather than a group: a 301 where a 200 was promised reads nothing
-   *  like a refused connection, and null is the second of those. */
-  code: number | null
+  /** What the last probe answered: a 301 where a 200 was promised reads
+   *  nothing like a refused connection, and `null` is the second of those.
+   *  Absent on a group, which speaks for several hosts and publishes none
+   *  of their answers — that is a different thing from nothing answering. */
+  code?: number | null
   /** A group with some members up and some down. One customer's site being
    *  unreachable is not every customer's site being unreachable, and a row
    *  that says otherwise makes the page lie about the machine. */
@@ -115,9 +116,6 @@ export function rows(data: PageData): Row[] {
       at,
       row: {
         name,
-        // A group speaks for several hosts and does not publish any one
-        // host's answer.
-        code: null,
         // Down only once enough of the group is unreachable to be the
         // machine's problem rather than one site's.
         ok: known === 0 ? null : downs === 0,

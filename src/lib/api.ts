@@ -52,9 +52,11 @@ export function statusJson(data: PageData, events: EventRow[]): Response {
         uptime_90d: uptimeOf(r.days),
       }
       if (r.latency !== null) m.latency_ms = r.latency
-      // What the last probe answered, when it was not what was promised:
-      // null means nothing answered at all.
-      if (r.ok === false) m.last_status = r.code
+      // What the last probe answered, when it was not what was promised.
+      // Absent rather than null when there is nothing to say — a group
+      // publishes no member's answer, and saying "nothing answered" about
+      // hosts that answered is a different claim from saying nothing.
+      if (r.ok === false && r.code !== undefined) m.last_status = r.code
       return m
     }),
     recent_events: eventsView(data.monitors, events, data.states, 20).map((e) => ({

@@ -120,9 +120,10 @@ export function serviceRow(r: Row, lang: Lang): string {
   const figure =
     pct === null ? `<span class="pct none">—</span>` : `<span class="pct">${pct}</span>`
   // A failure that is a redirect, a 500 or a refused connection are three
-  // different problems and one red pill; the answer goes where the word is.
+  // different problems and one red pill; the answer goes where the word
+  // is. A group has no answer of its own to give.
   const why =
-    r.ok === false
+    r.ok === false && r.code !== undefined
       ? ` title="${r.code === null ? esc(t(lang, "no_answer")) : `HTTP ${r.code}`}"`
       : ""
   return `<section class="svc">
