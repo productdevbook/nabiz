@@ -142,11 +142,25 @@ export async function record(db: Db, results: ProbeResult[]): Promise<StateChang
  *  is deleted can be handed the same id and everything left behind with
  *  it. Disabling is what keeps a history safely; deleting is what needs
  *  this sweep to have run in between. */
-export async function prune(db: Db): Promise<void> {
+export async function prune(db: Db, watched: Monitor[] = []): Promise<void> {
   const now = Date.now()
   const before = (days: number) => now - days * 24 * 3600 * 1000
   const orphans = (table: string) =>
     db.prepare(`DELETE FROM ${table} WHERE monitor_id NOT IN (SELECT id FROM monitors)`)
+  // The kind on an event row is a copy of the monitor's, and a copy goes
+  // stale: an operator moves a service into a group by editing the row
+  // this code never writes. Left alone, that service's whole history sits
+  // in the wrong window and crowds out the one it left. Both directions,
+  // by the same rule the page labels rows with.
+  const ids = (grouped: boolean) =>
+    watched.filter((m) => Boolean(m.grouped) === grouped).map((m) => m.id)
+  const reconcile = (grouped: boolean) => {
+    const list = ids(grouped)
+    return db.prepare(
+      `UPDATE events SET grouped = ${grouped ? 1 : 0}
+       WHERE grouped = ${grouped ? 0 : 1} AND monitor_id IN (${list.join(",") || "NULL"})`,
+    )
+  }
   await db.batch([
     db.prepare("DELETE FROM checks WHERE at < ?").bind(before(2)),
     db.prepare("DELETE FROM events WHERE at < ?").bind(before(180)),
@@ -157,6 +171,8 @@ export async function prune(db: Db): Promise<void> {
     orphans("days"),
     orphans("events"),
     orphans("state"),
+    reconcile(true),
+    reconcile(false),
   ])
   forget(db)
 }
@@ -351,7 +367,10 @@ export async function notices(
       `SELECT * FROM notices
        WHERE (?1 IS NULL OR lang IS NULL OR lang = ?1)
          AND (resolved_at IS NULL
-          OR id IN (SELECT id FROM notices WHERE resolved_at IS NOT NULL ORDER BY at DESC LIMIT ?2))
+          OR id IN (SELECT id FROM notices
+                     WHERE resolved_at IS NOT NULL
+                       AND (?1 IS NULL OR lang IS NULL OR lang = ?1)
+                     ORDER BY at DESC LIMIT ?2))
        ORDER BY (resolved_at IS NULL) DESC, at DESC`,
     )
     .bind(lang, resolvedLimit)

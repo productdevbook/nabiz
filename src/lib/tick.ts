@@ -49,6 +49,6 @@ export async function tick(
         .map((c) => `${c.monitor.slug} ${c.ok ? "recovered" : "down"}`)
         .join(", ")}`,
     )
-  if (sweep) await prune(db)
+  if (sweep) await prune(db, watched)
   return changes.length
 }

@@ -34,12 +34,6 @@ CREATE TABLE IF NOT EXISTS checks (
   status INTEGER,
   ms INTEGER
 );
--- Every read of this table asks for a window of time and nothing else: the
--- last hour for the latency figure, the last day for the waveform, older
--- than two days for the sweep. Leading on `at` is what lets those seek
--- instead of scan, and carrying the other three columns is what keeps the
--- seek from going back to the table for them.
-CREATE INDEX IF NOT EXISTS checks_by_time ON checks (at, ok, monitor_id, ms);
 
 -- One row per monitor per UTC day, updated in place on every probe. Ninety
 -- of these per monitor draw the bars.
@@ -51,9 +45,6 @@ CREATE TABLE IF NOT EXISTS days (
   ms_sum INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (monitor_id, day)
 );
--- The page asks for the last ninety days; the primary key is monitor-first
--- and cannot answer that without reading every row of every year kept.
-CREATE INDEX IF NOT EXISTS days_by_day ON days (day);
 
 -- The last known state, so an alert fires on the change and not on every
 -- minute of an outage.
@@ -83,8 +74,6 @@ CREATE TABLE IF NOT EXISTS events (
   -- it is cannot stop at its limit.
   grouped INTEGER NOT NULL DEFAULT 0
 );
-CREATE INDEX IF NOT EXISTS events_by_time ON events (at);
-CREATE INDEX IF NOT EXISTS events_by_kind ON events (grouped, at);
 
 -- What the operator said, in their own words. A probe can say a thing is
 -- down; only a person can say why, and when to expect it back.
@@ -97,3 +86,27 @@ CREATE TABLE IF NOT EXISTS notices (
   -- Which audience this speaks to; empty speaks to all of them.
   lang TEXT
 );
+
+-- Every index, after every table. This file is applied to databases that
+-- already exist, and a statement that fails takes every statement under it
+-- with it — an index over a column an older database has not got yet must
+-- not be able to cost that database a table.
+
+-- Every read of the checks table asks for a window of time: the last hour
+-- for the latency figure, the last day for the waveform, older than two
+-- days for the sweep. Leading on `at` is what lets those seek instead of
+-- scan, and carrying the other three columns is what keeps the seek from
+-- going back to the table for them.
+CREATE INDEX IF NOT EXISTS checks_by_time ON checks (at, ok, monitor_id, ms);
+
+-- The page asks for the last ninety days; the primary key is monitor-first
+-- and cannot answer that without reading every row of every year kept.
+CREATE INDEX IF NOT EXISTS days_by_day ON days (day);
+
+-- The sweep deletes by age.
+CREATE INDEX IF NOT EXISTS events_by_time ON events (at);
+
+-- Which window an event belongs to, and the reconciliation that keeps that
+-- copy true when an operator moves a service into a group.
+CREATE INDEX IF NOT EXISTS events_by_kind ON events (grouped, at);
+CREATE INDEX IF NOT EXISTS events_by_monitor ON events (monitor_id, grouped);

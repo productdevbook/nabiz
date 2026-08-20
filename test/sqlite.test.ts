@@ -132,6 +132,46 @@ describe("the same store, on a file instead of D1", () => {
     await db.close()
   })
 
+  test("moving a service into a group moves its history with it", async () => {
+    const db = await fresh()
+    await db.exec(seed("api"))
+    await db.exec(seed("shared"))
+    const watched = await monitors(db)
+    const [api, shared] = watched
+    // Both were named when their events were written.
+    const now = Date.now()
+    await db.exec(
+      `INSERT INTO events (monitor_id, at, ok, grouped) VALUES
+       (${(api as Monitor).id}, ${now - 2000}, 0, 0), (${(shared as Monitor).id}, ${now - 1000}, 0, 0)`,
+    )
+    // Then an operator edits the row — the one column this code never
+    // writes — and the copy on every event of that monitor is now a lie.
+    await db.exec(`UPDATE monitors SET grouped = 1 WHERE slug = 'shared'`)
+
+    await prune(db, await monitors(db))
+    const kinds = await db
+      .prepare("SELECT monitor_id, grouped FROM events ORDER BY monitor_id")
+      .all<{ monitor_id: number; grouped: number }>()
+    expect(kinds.results.map((r) => r.grouped)).toEqual([0, 1])
+    await db.close()
+  })
+
+  test("and back again, by the same rule the page labels rows with", async () => {
+    const db = await fresh()
+    await db.exec(seed("shared"))
+    const [shared] = await monitors(db)
+    await db.exec(`UPDATE monitors SET grouped = 1 WHERE slug = 'shared'`)
+    await db.exec(
+      `INSERT INTO events (monitor_id, at, ok, grouped) VALUES (${(shared as Monitor).id}, ${Date.now()}, 0, 1)`,
+    )
+    await db.exec(`UPDATE monitors SET grouped = 0 WHERE slug = 'shared'`)
+
+    await prune(db, await monitors(db))
+    const kinds = await db.prepare("SELECT grouped FROM events").all<{ grouped: number }>()
+    expect(kinds.results.map((r) => r.grouped)).toEqual([0])
+    await db.close()
+  })
+
   test("a disabled monitor's events do not push the watched ones off the page", async () => {
     const db = await fresh()
     await db.exec(seed("api"))
