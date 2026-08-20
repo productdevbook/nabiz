@@ -306,6 +306,19 @@
   .events time {
     @apply text-mut text-[12px] whitespace-nowrap tabular-nums;
   }
+  /* An event row is an icon, a name, a word and a time, and the time may
+   * not break in the middle of a date — so on a narrow screen the row
+   * wraps and the time takes the line under it. Without this the time ran
+   * past a panel that hides its overflow and was simply gone: at 320px in
+   * German, 116 pixels of a 122-pixel timestamp. */
+  @media (max-width: 480px) {
+    .events li {
+      @apply flex-wrap;
+    }
+    .events time {
+      @apply w-full ps-10;
+    }
+  }
   .chip {
     @apply inline-flex h-[22px] items-center gap-1.5 rounded-full border px-2.5 text-[11.5px] leading-none font-semibold;
     --hue: var(--mut);
@@ -371,17 +384,24 @@
   }
   /* On a narrow screen the pill and the latency take the width and the
    * name truncates to a letter and a half — on a page whose whole job is
-   * to say which service it is. It takes its own line instead. */
-  @media (max-width: 480px) {
-    .svc header {
-      @apply flex-wrap;
-    }
-    .who {
-      @apply w-full;
-    }
-  }
+   * to say which service it is. Wrapping the header only moved the uptime
+   * figure; the pill and the latency sit inside `.who` and never left the
+   * name's line. Wrapping inside `.who` is what moves them: the name takes
+   * the first line and as much of a second as it needs, the pill and the
+   * latency take the line under it. Letting the name wrap where it stood
+   * collapsed it to nothing — a flex item with no room and no `truncate`
+   * shrinks to zero and paints none of its text. */
   .svc h3 {
     @apply truncate text-[14.5px] font-semibold tracking-[-0.1px];
+  }
+  @media (max-width: 480px) {
+    .who {
+      @apply flex-wrap;
+    }
+    .svc h3 {
+      @apply w-full whitespace-normal;
+      overflow-wrap: anywhere;
+    }
   }
   .state {
     @apply inline-flex h-[22px] items-center gap-1.5 rounded-full border px-2.5 text-[11.5px] leading-none font-medium;
@@ -438,6 +458,11 @@
   /* Ninety gaps of three pixels is 267 of them, which is wider than a
    * phone: every bar computed to zero width and the history rendered as a
    * blank band. The gap gives way before the data does. */
+  @media (max-width: 900px) {
+    .bars {
+      @apply gap-0.5;
+    }
+  }
   @media (max-width: 600px) {
     .bars {
       @apply gap-px;
@@ -461,6 +486,12 @@
   .bars i:hover {
     transform: scaleY(1.18);
     filter: brightness(1.12);
+  }
+  /* Eighteen percent of three pixels is half a pixel. A day with no data
+   * has the smallest bar and the only title worth reading — "no data yet"
+   * is why the strip is blank — so it grows by more than its share. */
+  .bars i:not(.ok):not(.meh):not(.bad):hover {
+    transform: scaleY(3);
   }
   @media (prefers-reduced-motion: reduce) {
     .bars i,
