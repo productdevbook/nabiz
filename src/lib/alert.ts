@@ -39,7 +39,12 @@ function oneLine(name: string): string {
   let out = ""
   for (const ch of name) {
     const code = ch.codePointAt(0) as number
-    out += code < 0x20 || code === 0x7f ? " " : ch
+    // Every character that ends a line, not only the ones below space:
+    // NEL, LINE SEPARATOR and PARAGRAPH SEPARATOR break a line too, and
+    // the point here is that a name cannot become two lines.
+    const breaks =
+      code < 0x20 || code === 0x7f || code === 0x85 || code === 0x2028 || code === 0x2029
+    out += breaks ? " " : ch
   }
   return out
 }
